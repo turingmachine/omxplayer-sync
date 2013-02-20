@@ -12,10 +12,13 @@
 #
 
 import re
+import os
+import sys
 import math
 import socket
 import thread
 import pexpect
+import signal
 from time import sleep, time
 from threading import local
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
@@ -72,6 +75,7 @@ def read_position_local(process):
            continue
        elif index in (2,3):
            print "exiting..."
+           os.kill(os.getpid(), signal.SIGINT)
        else:
            position_local = float(process.match.group(1)) / 1000000
 
@@ -83,6 +87,11 @@ def main():
     options, arguments = p.parse_args()
     process = pexpect.spawn(' '.join([OMXPLAYER, '-s'] + arguments))
 
+    def kill_process(signum, frame):
+        process.kill(15)
+        sys.exit(0)
+    signal.signal(signal.SIGINT, kill_process)
+    
     global position_local
     thread.start_new_thread(read_position_local, (process,))
 
@@ -120,8 +129,7 @@ def main():
                     continue
 
             if abs(deviation) > TOLERANCE \
-            and not position_master == 0.0 \
-            and not wait_for_sync:
+            and not position_master == 0.0:
                 if deviation > 0: # we are behind
                     print "skip forward..."
                     process.send('\x1B[C')
