@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+#
+# omxplayer-sync
+#
+# Copyright 2012, Simon Josi
+# Simon Josi me(at)yokto(dot)net
+#
+# This program is free software; you can redistribute 
+# it and/or modify it under the terms of the GNU 
+# General Public License version 3 as published by 
+# the Free Software Foundation.
+#
+
+import re
+import math
+import socket
+import thread
+import pexpect
+from time import sleep, time
+from threading import local
+from optparse import OptionParser, BadOptionError, AmbiguousOptionError
+
+OMXPLAYER = 'omxplayer'
+TOLERANCE = 0.2
+ADJUST = -0.4
+PORT = 1666
+
+REGEX_STATUS = re.compile(r"V :\s*([\d.]+).*")
+REGEX_DONE = re.compile(r"have a nice day.*")
+
+global position_local
+position_local = 0.0
+
+global position_master
+position_master = 0.0
+
+class PassThroughOptionParser(OptionParser):
+    """
+    An unknown option pass-through implementation of OptionParser.
+
+    When unknown arguments are encountered, bundle with largs and try again,
+    until rargs is depleted.  
+
+    sys.exit(status) will still be called if a known argument is passed
+    incorrectly (e.g. missing arguments or bad argument types, etc.)        
+    """
+    def _process_args(self, largs, rargs, values):
+        while rargs:
+            try:
+                OptionParser._process_args(self,largs,rargs,values)
+            except (BadOptionError,AmbiguousOptionError), e:
+                largs.append(e.opt_str)
+
+
+def read_position_master():
+   global position_master
+   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+   sock.bind(('0.0.0.0', PORT))
+   while True:
+       position_master = float(sock.recvfrom(1024)[0]) + ADJUST
+
+def read_position_local(process):
+   global position_local
+   while True:
+       index = process.expect([
+            REGEX_STATUS,
+            pexpect.TIMEOUT,
+            pexpect.EOF,
+            REGEX_DONE,
+       ])
+       if index == 1: 
+           continue
+       elif index in (2,3):
+           print "exiting..."
+       else:
+           position_local = float(process.match.group(1)) / 1000000
+
+def main():
+    p = PassThroughOptionParser()
+    p.add_option('--master', '-m', action='store_true')
+    p.add_option('--slave', '-l', action='store_true')
+    p.add_option('--destination', '-x', default='224.0.0.1')
+    options, arguments = p.parse_args()
+    process = pexpect.spawn(' '.join([OMXPLAYER, '-s'] + arguments))
+
+    global position_local
+    thread.start_new_thread(read_position_local, (process,))
+
+    if options.master:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        sock.connect((options.destination, PORT))
+
+    if options.slave:
+        global position_master
+        thread.start_new_thread(read_position_master,())
+
+    wait_for_sync = False
+    while True:
+        if options.master:
+            print "local: %.2f" % position_local
+            try:
+                sock.send(str(position_local))
+            except socket.error:
+                pass
+
+        if options.slave:
+            deviation = position_master - position_local
+            print "local: %.2f  master: %.2f deviation: %.2f wait: %r" % (
+                position_local, position_master, deviation, wait_for_sync)
+
+            if wait_for_sync:
+                if deviation > 0:
+                    process.send('p')
+                    wait_for_sync = False
+                if position_local < (position_master - TOLERANCE):
+                    print "we are still behind, go ahead..."
+                    wait_for_sync = False
+                else:
+                    sleep(0.05)
+                    continue
+
+            if abs(deviation) > TOLERANCE \
+            and not position_master == 0.0 \
+            and not wait_for_sync:
+                if deviation > 0: # we are behind
+                    print "skip forward..."
+                    process.send('\x1B[C')
+                elif deviation < 0: # we are ahead
+                    print "skip back..."
+                    process.send('\x1B[D')
+
+                sleep(1)
+                process.send('p')
+                wait_for_sync = True
+
+        sleep(0.05)
+
+if __name__ == '__main__':
+    main()
