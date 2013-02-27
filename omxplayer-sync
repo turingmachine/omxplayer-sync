@@ -64,6 +64,7 @@ def read_position_master():
 
 def read_position_local(process):
    global position_local
+   position_local = 0.0
    while True:
        index = process.expect([
             REGEX_STATUS,
@@ -74,8 +75,9 @@ def read_position_local(process):
        if index == 1: 
            continue
        elif index in (2,3):
-           print "exiting..."
-           os.kill(os.getpid(), signal.SIGINT)
+           print "omxplayer has ended..."
+           position_local = False
+           break
        else:
            position_local = float(process.match.group(1)) / 1000000
 
@@ -85,63 +87,78 @@ def main():
     p.add_option('--slave', '-l', action='store_true')
     p.add_option('--destination', '-x', default='224.0.0.1')
     options, arguments = p.parse_args()
-    process = pexpect.spawn(' '.join([OMXPLAYER, '-s'] + arguments))
 
-    def kill_process(signum, frame):
-        process.kill(15)
-        sys.exit(0)
-    signal.signal(signal.SIGINT, kill_process)
-    
-    global position_local
-    thread.start_new_thread(read_position_local, (process,))
-
-    if options.master:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-        sock.connect((options.destination, PORT))
+    filenames, omxplayer_options = [], []
+    for argument in arguments:
+        if argument.startswith('-'):
+            omxplayer_options.append(argument)
+        else:
+            filenames.append(argument)
 
     if options.slave:
         global position_master
         thread.start_new_thread(read_position_master,())
 
-    wait_for_sync = False
-    while True:
+    for filename in filenames:
+        process = pexpect.spawn('%s -s %s %s' % (OMXPLAYER, ' '.join(omxplayer_options), filename))
+
+        print "playing %s" % filename
+
+        def kill_process(signum, frame):
+           process.kill(15)
+           sys.exit(0)
+        signal.signal(signal.SIGINT, kill_process)
+    
+        global position_local
+        thread.start_new_thread(read_position_local, (process,))
+
         if options.master:
-            print "local: %.2f" % position_local
-            try:
-                sock.send(str(position_local))
-            except socket.error:
-                pass
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+            sock.connect((options.destination, PORT))
 
-        if options.slave:
-            deviation = position_master - position_local
-            print "local: %.2f  master: %.2f deviation: %.2f wait: %r" % (
-                position_local, position_master, deviation, wait_for_sync)
+        wait_for_sync = False
+        while True:
+            if position_local is False:
+               position_local = 0.0
+               break
 
-            if wait_for_sync:
-                if deviation > 0:
+            if options.master:
+                print "local: %.2f" % position_local
+                try:
+                    sock.send(str(position_local))
+                except socket.error:
+                    pass
+
+            if options.slave:
+                deviation = position_master - position_local
+                print "local: %.2f  master: %.2f deviation: %.2f wait: %r" % (
+                    position_local, position_master, deviation, wait_for_sync)
+
+                if wait_for_sync:
+                    if deviation > 0:
+                        process.send('p')
+                        wait_for_sync = False
+                    if position_local < (position_master - TOLERANCE):
+                        print "we are still behind, go ahead..."
+                        wait_for_sync = False
+                    else:
+                        sleep(0.05)
+                        continue
+
+                if abs(deviation) > TOLERANCE \
+                and not position_master == 0.0:
+                    if deviation > 0: # we are behind
+                        print "skip forward..."
+                        process.send('\x1B[C')
+                    elif deviation < 0: # we are ahead
+                        print "skip back..."
+                        process.send('\x1B[D')
+
+                    sleep(1)
                     process.send('p')
-                    wait_for_sync = False
-                if position_local < (position_master - TOLERANCE):
-                    print "we are still behind, go ahead..."
-                    wait_for_sync = False
-                else:
-                    sleep(0.05)
-                    continue
+                    wait_for_sync = True
 
-            if abs(deviation) > TOLERANCE \
-            and not position_master == 0.0:
-                if deviation > 0: # we are behind
-                    print "skip forward..."
-                    process.send('\x1B[C')
-                elif deviation < 0: # we are ahead
-                    print "skip back..."
-                    process.send('\x1B[D')
-
-                sleep(1)
-                process.send('p')
-                wait_for_sync = True
-
-        sleep(0.05)
+            sleep(0.05)
 
 if __name__ == '__main__':
     main()
