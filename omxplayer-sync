@@ -57,14 +57,17 @@ class PassThroughOptionParser(OptionParser):
 
 def read_position_master():
    global position_master
+
    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
    sock.bind(('0.0.0.0', PORT))
+
    while True:
        position_master = float(sock.recvfrom(1024)[0]) + ADJUST
 
 def read_position_local(process):
    global position_local
    position_local = 0.0
+
    while True:
        index = process.expect([
             REGEX_STATUS,
@@ -81,11 +84,74 @@ def read_position_local(process):
        else:
            position_local = float(process.match.group(1)) / 1000000
 
+def play_file(filename, options, omxplayer_options):
+    process = pexpect.spawn('%s -s %s %s' % (
+        OMXPLAYER, ' '.join(omxplayer_options), filename))
+
+    print "playing %s" % filename
+
+    def kill_process(signum, frame):
+       process.kill(15)
+       sys.exit(0)
+    signal.signal(signal.SIGINT, kill_process)
+
+    global position_local
+    thread.start_new_thread(read_position_local, (process,))
+
+    if options.master:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        sock.connect((options.destination, PORT))
+
+    wait_for_sync = False
+    while True:
+        sleep(0.05)
+
+        if position_local is False:
+           position_local = 0.0
+           break
+
+        if options.master:
+            print "local: %.2f" % position_local
+            try:
+                sock.send(str(position_local))
+            except socket.error:
+                pass
+
+        if options.slave:
+            deviation = position_master - position_local
+            print "local: %.2f master: %.2f deviation: %.2f wait: %r" % (
+                position_local, position_master, deviation, wait_for_sync)
+
+            if wait_for_sync:
+                if deviation > 0:
+                    process.send('p')
+                    wait_for_sync = False
+                if position_local < (position_master - TOLERANCE):
+                    print "we are still behind, go ahead..."
+                    wait_for_sync = False
+                else:
+                    sleep(0.05)
+                    continue
+
+            if abs(deviation) > TOLERANCE \
+            and not position_master == 0.0:
+                if deviation > 0: # we are behind
+                    print "skip forward..."
+                    process.send('\x1B[C')
+                elif deviation < 0: # we are ahead
+                    print "skip back..."
+                    process.send('\x1B[D')
+
+                sleep(1)
+                process.send('p')
+                wait_for_sync = True
+
 def main():
     p = PassThroughOptionParser()
     p.add_option('--master', '-m', action='store_true')
     p.add_option('--slave', '-l', action='store_true')
     p.add_option('--destination', '-x', default='224.0.0.1')
+    p.add_option('--loop', '-u', action='store_true')
     options, arguments = p.parse_args()
 
     filenames, omxplayer_options = [], []
@@ -99,66 +165,10 @@ def main():
         global position_master
         thread.start_new_thread(read_position_master,())
 
-    for filename in filenames:
-        process = pexpect.spawn('%s -s %s %s' % (OMXPLAYER, ' '.join(omxplayer_options), filename))
-
-        print "playing %s" % filename
-
-        def kill_process(signum, frame):
-           process.kill(15)
-           sys.exit(0)
-        signal.signal(signal.SIGINT, kill_process)
-    
-        global position_local
-        thread.start_new_thread(read_position_local, (process,))
-
-        if options.master:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-            sock.connect((options.destination, PORT))
-
-        wait_for_sync = False
-        while True:
-            if position_local is False:
-               position_local = 0.0
-               break
-
-            if options.master:
-                print "local: %.2f" % position_local
-                try:
-                    sock.send(str(position_local))
-                except socket.error:
-                    pass
-
-            if options.slave:
-                deviation = position_master - position_local
-                print "local: %.2f  master: %.2f deviation: %.2f wait: %r" % (
-                    position_local, position_master, deviation, wait_for_sync)
-
-                if wait_for_sync:
-                    if deviation > 0:
-                        process.send('p')
-                        wait_for_sync = False
-                    if position_local < (position_master - TOLERANCE):
-                        print "we are still behind, go ahead..."
-                        wait_for_sync = False
-                    else:
-                        sleep(0.05)
-                        continue
-
-                if abs(deviation) > TOLERANCE \
-                and not position_master == 0.0:
-                    if deviation > 0: # we are behind
-                        print "skip forward..."
-                        process.send('\x1B[C')
-                    elif deviation < 0: # we are ahead
-                        print "skip back..."
-                        process.send('\x1B[D')
-
-                    sleep(1)
-                    process.send('p')
-                    wait_for_sync = True
-
-            sleep(0.05)
+    while True:
+        for filename in filenames:
+            play_file(filename, options, omxplayer_options)
+        if not options.loop: break
 
 if __name__ == '__main__':
     main()
