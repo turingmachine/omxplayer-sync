@@ -37,6 +37,9 @@ position_local = 0.0
 global position_master
 position_master = 0.0
 
+global filename_master
+filename_master = ''
+
 class PassThroughOptionParser(OptionParser):
     """
     An unknown option pass-through implementation of OptionParser.
@@ -57,12 +60,15 @@ class PassThroughOptionParser(OptionParser):
 
 def read_position_master():
    global position_master
+   global filename_master
 
    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
    sock.bind(('0.0.0.0', PORT))
 
    while True:
-       position_master = float(sock.recvfrom(1024)[0]) + ADJUST
+       data = sock.recvfrom(1024)[0].split('%', 1)
+       position_master = float(data[0]) + ADJUST
+       filename_master = data[1]
 
 def read_position_local(process):
    global position_local
@@ -113,7 +119,7 @@ def play_file(filename, options, omxplayer_options):
         if options.master:
             print "local: %.2f" % position_local
             try:
-                sock.send(str(position_local))
+                sock.send('%s%%%s' % (str(position_local), filename))
             except socket.error:
                 pass
 
@@ -134,6 +140,7 @@ def play_file(filename, options, omxplayer_options):
                     continue
 
             if abs(deviation) > TOLERANCE \
+            and filename == filename_master \
             and not position_master == 0.0:
                 if deviation > 0: # we are behind
                     print "skip forward..."
