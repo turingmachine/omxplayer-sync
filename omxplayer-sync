@@ -139,7 +139,7 @@ def play_file(filename, options, omxplayer_options):
                     print "skip forward..."
                     process.send('\x1B[C')
                 elif deviation < 0: # we are ahead
-                    print "skip back..."
+                    print "skip backwards..."
                     process.send('\x1B[D')
 
                 sleep(1)
