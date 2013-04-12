@@ -134,12 +134,16 @@ def play_file(filename, options, omxplayer_options):
                     position_local, position_master, deviation, wait_for_sync)
 
             if wait_for_sync:
-                if deviation > 0:
+                if deviation < TOLERANCE and deviation > -TOLERANCE:
                     process.send('p')
                     wait_for_sync = False
                 if position_local < (position_master - TOLERANCE):
                     if options.verbose:
-                        print "we are still behind, go ahead..."
+                        print "we are still behind, continue..."
+                    wait_for_sync = False
+                elif position_local > position_master and deviation < -10:
+                    if options.verbose:
+                        print "we are still ahead, continue..."
                     wait_for_sync = False
                 else:
                     sleep(0.05)
