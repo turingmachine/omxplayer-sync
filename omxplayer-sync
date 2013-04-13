@@ -24,8 +24,8 @@ from threading import local
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 OMXPLAYER = 'omxplayer'
+OMXPLAYER_ADJUST = -0.1
 TOLERANCE = 0.2
-ADJUST = -0.4
 PORT = 1666
 
 REGEX_STATUS = re.compile(r"V :\s*([\d.]+).*")
@@ -66,7 +66,7 @@ def read_position_master():
 
    while True:
        data = sock.recvfrom(1024)[0].split('%', 1)
-       position_master = float(data[0]) + ADJUST
+       position_master = float(data[0])
        filename_master = data[1]
 
 def read_position_local(process, options):
@@ -88,7 +88,7 @@ def read_position_local(process, options):
            position_local = False
            break
        else:
-           position_local = float(process.match.group(1)) / 1000000
+           position_local = float(process.match.group(1)) / 1000000 + OMXPLAYER_ADJUST
 
 
 def play_file(filename, options, omxplayer_options):
