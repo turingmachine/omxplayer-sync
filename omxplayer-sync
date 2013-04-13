@@ -117,8 +117,6 @@ def play_file(filename, options, omxplayer_options):
 
     wait_for_sync = False
     while True:
-        sleep(0.05)
-
         if position_local is False:
            position_local = 0.0
            break
