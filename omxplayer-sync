@@ -29,7 +29,7 @@ TOLERANCE = 0.2
 ADJUST_OMXPLAYER = -0.1
 ADJUST_MASTER = 0.1
 ADJUST_SLAVE = 0.3
-SKIP_SIZE = 5
+SEEK_SIZE = 5
 
 REGEX_STATUS = re.compile(r"V :\s*([\d.]+).*")
 REGEX_DONE = re.compile(r"have a nice day.*")
@@ -145,7 +145,7 @@ def play_file(filename, options, omxplayer_options):
                     if options.verbose:
                         print "we are still behind, continue..."
                     wait_for_sync = False
-                elif position_local > position_master and deviation < -SKIP_SIZE:
+                elif position_local > position_master and deviation < -SEEK_SIZE:
                     if options.verbose:
                         print "we are still ahead, continue..."
                     wait_for_sync = False
