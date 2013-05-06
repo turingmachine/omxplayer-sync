@@ -138,7 +138,7 @@ def play_file(filename, options, omxplayer_options):
                     position_local, position_master, deviation, wait_for_sync)
 
             if wait_for_sync:
-                if deviation > -TOLERANCE and deviation < TOLERANCE:
+                if deviation >= 0.0 and deviation < TOLERANCE:
                     process.send('p')
                     if options.verbose:
                         print "we are within TOLERANCE, play..."
