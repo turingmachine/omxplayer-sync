@@ -25,11 +25,11 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 OMXPLAYER = 'omxplayer'
 PORT = 1666
-TOLERANCE = 0.2
-ADJUST_OMXPLAYER = 0.2
+TOLERANCE = 0.25
+ADJUST_OMXPLAYER = 0.20
 ADJUST_MASTER = 0.0
 ADJUST_SLAVE = 0.0
-SEEK_SIZE = 5
+SEEK_SIZE = 1
 
 REGEX_STATUS = re.compile(r"V :\s*([\d\.]+).*")
 REGEX_DONE = re.compile(r"have a nice day.*")
@@ -74,7 +74,7 @@ def read_position_master():
 
 def play_file(filename, options, omxplayer_options):
     process = pexpect.spawn('%s -s %s %s' % (
-        OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.1)
+        OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
 
     global position_local
     position_local = 0.0
@@ -99,10 +99,7 @@ def play_file(filename, options, omxplayer_options):
 
     wait_for_sync = False
     while True:
-        if position_local is False:
-           position_local = 0.0
-           break
-
+        eof = False
         while True:
             index = process.expect([
                 REGEX_STATUS,
@@ -115,10 +112,11 @@ def play_file(filename, options, omxplayer_options):
             elif index in (2,3):
                 if options.verbose:
                     print "omxplayer has ended..."
-                position_local = False
+                eof = True
                 break
             else:
                 position_local = float(process.match.group(1)) + adjust
+        if eof: break
 
         if options.master:
             if options.verbose:
@@ -138,11 +136,12 @@ def play_file(filename, options, omxplayer_options):
                     position_local, position_master, deviation, wait_for_sync)
 
             if wait_for_sync:
-                if deviation >= 0.0 and deviation < TOLERANCE:
+                if deviation >= -0.1 and deviation < 0.1:
                     process.send('p')
                     if options.verbose:
                         print "we are within TOLERANCE, play..."
                     wait_for_sync = False
+                    sleep(0.2)
                 else:
                     continue
 
@@ -158,8 +157,7 @@ def play_file(filename, options, omxplayer_options):
                     process.send('\x1B[C')
                     sleep(0.2)
                 # we are ahead
-                elif position_local > position_master \
-                and position_local < (position_master + SEEK_SIZE*3):
+                elif position_local > (position_master + SEEK_SIZE*3):
                     if options.verbose:
                         print "skip backwards..."
                     process.send('\x1B[D')
