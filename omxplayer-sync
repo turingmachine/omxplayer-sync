@@ -174,12 +174,14 @@ def main():
             filenames.append(argument)
 
     if options.slave:
-        global position_master
         thread.start_new_thread(read_position_master,())
 
     while True:
         for filename in filenames:
+            if options.slave and filename_master in filenames:
+                filename = filename_master
             play_file(filename, options, omxplayer_options)
+
         if not options.loop: break
 
 if __name__ == '__main__':
