@@ -32,7 +32,6 @@ omxplayer -v -m -x 255.255.255.255 movie.mp4
 omxplayer -v -l movie.mp4
 ```
 
-
 Settings
 --------
 
@@ -41,7 +40,7 @@ OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.2
 ADJUST_OMXPLAYER = -0.1
-ADJUST_MASTER = 0.1
-ADJUST_SLAVE = 0.3
+ADJUST_MASTER = 0.0
+ADJUST_SLAVE = 0.0
 SEEK_SIZE = 5
 ```
