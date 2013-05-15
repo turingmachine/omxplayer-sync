@@ -26,16 +26,13 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.25
-ADJUST_OMXPLAYER = 0.20
+ADJUST_OMXPLAYER = 0.2
 ADJUST_MASTER = 0.0
 ADJUST_SLAVE = 0.0
 SEEK_SIZE = 1
 
 REGEX_STATUS = re.compile(r"V :\s*([\d\.]+).*")
 REGEX_DONE = re.compile(r"have a nice day.*")
-
-
-position_local = 0.0
 
 global position_master
 position_master = 0.0
@@ -75,8 +72,7 @@ def read_position_master():
 def play_file(filename, options, omxplayer_options):
     process = pexpect.spawn('%s -s %s %s' % (
         OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
-
-    global position_local
+    wait_for_sync = False
     position_local = 0.0
     adjust = ADJUST_OMXPLAYER + (options.master and ADJUST_MASTER or ADJUST_SLAVE)
 
@@ -97,7 +93,6 @@ def play_file(filename, options, omxplayer_options):
             print "connect: Network is unreachable"
             pass
 
-    wait_for_sync = False
     while True:
         eof = False
         while True:
@@ -139,29 +134,25 @@ def play_file(filename, options, omxplayer_options):
                 if deviation >= -0.1 and deviation < 0.1:
                     process.send('p')
                     if options.verbose:
-                        print "we are within TOLERANCE, play..."
+                        print "we are sync, play..."
                     wait_for_sync = False
                     sleep(0.2)
                 else:
                     continue
 
             if abs(deviation) > TOLERANCE \
-            and filename == filename_master \
             and position_local > 1.0 \
-            and position_master > 1.0 \
-            and not wait_for_sync:
-                # we are behind
+            and position_master > 1.0
+            and filename == filename_master:
                 if position_local < position_master :
                     if options.verbose:
-                        print "skip forward..."
+                        print "seek forward..."
                     process.send('\x1B[C')
                     sleep(0.2)
-                # we are ahead
-                elif position_local > (position_master + SEEK_SIZE*3):
+                elif position_local > (position_master + SEEK_SIZE*2):
                     if options.verbose:
-                        print "skip backwards..."
+                        print "seek backwards..."
                     process.send('\x1B[D')
-                    sleep(0.2)
                 else:
                     process.send('p')
                     wait_for_sync=True
