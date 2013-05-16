@@ -32,6 +32,13 @@ omxplayer -v -m -x 255.255.255.255 movie.mp4
 omxplayer -v -l movie.mp4
 ```
 
+
+Requirements
+------------
+ * pyexpect
+ * omxplayer >= fcfb7911
+
+
 Settings
 --------
 
