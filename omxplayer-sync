@@ -178,7 +178,7 @@ def main():
 
     while True:
         for filename in filenames:
-            if options.slave and filename_master in filenames:
+            if options.slave and (filename_master in filenames):
                 filename = filename_master
             play_file(filename, options, omxplayer_options)
 
