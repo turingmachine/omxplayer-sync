@@ -142,7 +142,7 @@ def play_file(filename, options, omxplayer_options):
 
             if abs(deviation) > TOLERANCE \
             and position_local > 1.0 \
-            and position_master > 1.0
+            and position_master > 1.0 \
             and filename == filename_master:
                 if position_local < position_master :
                     if options.verbose:
