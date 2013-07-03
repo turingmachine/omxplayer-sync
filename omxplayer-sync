@@ -73,6 +73,7 @@ def play_file(filename, options, omxplayer_options):
     process = pexpect.spawn('%s -s %s %s' % (
         OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
     wait_for_sync = False
+    wait_after_sync = True
     position_local = 0.0
     adjust = ADJUST_OMXPLAYER + (options.master and ADJUST_MASTER or ADJUST_SLAVE)
 
@@ -136,9 +137,15 @@ def play_file(filename, options, omxplayer_options):
                     if options.verbose:
                         print "we are sync, play..."
                     wait_for_sync = False
-                    sleep(0.2)
-                else:
-                    continue
+                    wait_after_sync = time()
+
+                continue
+            
+            if wait_after_sync:
+                if (time() - wait_after_sync) > 5:
+                     wait_after_sync = False
+
+                continue
 
             if abs(deviation) > TOLERANCE \
             and position_local > 1.0 \
