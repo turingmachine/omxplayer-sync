@@ -182,6 +182,7 @@ def main():
 
     if options.slave:
         thread.start_new_thread(read_position_master,())
+        sleep(0.1)
 
     while True:
         for filename in filenames:
