@@ -37,9 +37,10 @@ omxplayer -v -l movie.mp4
 
 Requirements
 ------------
- * pyexpect
- * omxplayer >= fcfb7911
-
+A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).
+Currently my [fork](https://github.com/turingmachine/omxplayer/tree/fixes) of omxplayer is required.
+A build of this fork can be found at [yokto.magdesign.ch](http://yokto.magdesign.ch).
+ 
 
 Settings
 --------
