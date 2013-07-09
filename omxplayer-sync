@@ -166,6 +166,9 @@ def play_file(filename, options, omxplayer_options):
                     wait_for_sync=True
                 sleep(0.2)
 
+    os.kill(-process.pid, 15)
+    process.kill(15)
+
 def main():
     p = PassThroughOptionParser()
     p.add_option('--master', '-m', action='store_true')
