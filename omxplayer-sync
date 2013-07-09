@@ -25,7 +25,7 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 OMXPLAYER = 'omxplayer'
 PORT = 1666
-TOLERANCE = 0.25
+TOLERANCE = 0.3
 ADJUST_OMXPLAYER = 0.2
 ADJUST_MASTER = 0.0
 ADJUST_SLAVE = 0.0
