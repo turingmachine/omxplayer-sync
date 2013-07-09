@@ -151,11 +151,11 @@ def play_file(filename, options, omxplayer_options):
             and position_local > 1.0 \
             and position_master > 1.0 \
             and filename == filename_master:
+                sleep(0.2)
                 if position_local < position_master :
                     if options.verbose:
                         print "seek forward..."
                     process.send('\x1B[C')
-                    sleep(0.2)
                 elif position_local > (position_master + SEEK_SIZE*2):
                     if options.verbose:
                         print "seek backwards..."
@@ -163,6 +163,7 @@ def play_file(filename, options, omxplayer_options):
                 else:
                     process.send('p')
                     wait_for_sync=True
+                sleep(0.2)
 
 def main():
     p = PassThroughOptionParser()
