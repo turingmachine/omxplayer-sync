@@ -26,7 +26,7 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.3
-ADJUST_OMXPLAYER = 0.2
+ADJUST_OMXPLAYER = 0.0
 SEEK_SIZE = 1
 
 REGEX_STATUS = re.compile(r"M\s*:\s*(\d+).*")
