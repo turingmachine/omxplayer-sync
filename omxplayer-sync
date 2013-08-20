@@ -31,7 +31,7 @@ ADJUST_MASTER = 0.0
 ADJUST_SLAVE = 0.0
 SEEK_SIZE = 1
 
-REGEX_STATUS = re.compile(r"V :\s*([\d\.]+).*")
+REGEX_STATUS = re.compile(r"M\s*:\s*(\d+).*")
 REGEX_DONE = re.compile(r"have a nice day.*")
 
 global position_master
@@ -112,7 +112,7 @@ def play_file(filename, options, omxplayer_options):
                 eof = True
                 break
             else:
-                position_local = float(process.match.group(1)) + adjust
+                position_local = (float(process.match.group(1)) / 1000000) + adjust
         if eof: break
 
         if options.master:
