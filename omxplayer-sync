@@ -81,15 +81,15 @@ def play_file(filename, options, omxplayer_options):
         print "playing %s" % filename
 
     def kill_process(signum, frame):
-       try:
-           os.kill(-process.pid, 15)
-       except:
-           pass
-       try:
-           process.kill(15)
-       except:
-           pass
-       sys.exit(0)
+         try:
+             os.kill(-process.pid, 15)
+         except:
+             pass
+         try:
+             process.kill(15)
+         except:
+             pass
+         sys.exit(0)
     signal.signal(signal.SIGINT, kill_process)
 
     if options.master:
@@ -172,14 +172,14 @@ def play_file(filename, options, omxplayer_options):
                     wait_for_sync=True
                 sleep(0.2)
 
-   try:
-       os.kill(-process.pid, 15)
-   except:
-       pass
-   try:
-       process.kill(15)
-   except:
-       pass
+    try:
+        os.kill(-process.pid, 15)
+    except:
+        pass
+    try:
+        process.kill(15)
+    except:
+        pass
 
 def main():
     p = PassThroughOptionParser()
