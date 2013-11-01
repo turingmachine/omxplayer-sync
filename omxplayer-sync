@@ -19,6 +19,7 @@ import socket
 import thread
 import pexpect
 import signal
+import collections
 from time import sleep, time
 from threading import local
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
@@ -69,8 +70,6 @@ def read_position_master():
 def play_file(filename, options, omxplayer_options):
     process = pexpect.spawn('%s -s %s %s' % (
         OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
-    wait_for_sync = False
-    wait_after_sync = True
     position_local = 0.0
 
     if options.verbose:
@@ -96,6 +95,11 @@ def play_file(filename, options, omxplayer_options):
         except:
             print "connect: Network is unreachable"
             pass
+
+    if options.slave:
+        wait_for_sync = False
+        wait_after_sync = True
+        deviation_moving_avarage = collections.qeque(maxlen=5)
 
     while True:
         eof = False
@@ -129,7 +133,10 @@ def play_file(filename, options, omxplayer_options):
                 pass
 
         if options.slave:
-            deviation = position_master - position_local
+            deviation_moving_avarage.append(position_master - position_local)
+            deviations = list(deviation_moving_avarage)
+            deviation = reduce(lambda x, y: x + y, deviations) / len(deviations)
+
             if options.verbose:
                 print "local: %.2f master: %.2f deviation: %.2f wait: %r" % (
                     position_local, position_master, deviation, wait_for_sync)
