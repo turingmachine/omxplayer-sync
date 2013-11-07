@@ -25,34 +25,23 @@ Options:
 **master**
 
 ```
-omxplayer -v -m -x 255.255.255.255 movie.mp4
+omxplayer-sync -muv movie1.mp4 movie2.mp4 /movies/*
 ```
 
 **slave**
 
 ```
-omxplayer -v -l movie.mp4
+omxplayer-sync -luv movie1.mp4 movie2.mp4 /movies/*
 ```
 
 
 Requirements
 ------------
 A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).
+Veersion [c0dd950](omxplayer_0.3.2~git20131105~c0dd950_armhf.deb) of omxplayer.
 
-Currently my [fork](https://github.com/turingmachine/omxplayer/tree/fixes) of omxplayer is required.
 
-A build of this fork can be found at [yokto.magdesign.ch](http://yokto.magdesign.ch).
- 
-
-Settings
---------
-
-```
-OMXPLAYER = 'omxplayer'
-PORT = 1666
-TOLERANCE = 0.2
-ADJUST_OMXPLAYER = -0.1
-ADJUST_MASTER = 0.0
-ADJUST_SLAVE = 0.0
-SEEK_SIZE = 5
-```
+Usage notes
+-----------
+To achive faster initial sync times, one should use a build of omxplayer with 
+forward and backward seek times set to 5 seconds instead of 30 seconds.
