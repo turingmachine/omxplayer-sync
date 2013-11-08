@@ -131,8 +131,6 @@ def play_file(filename, options, omxplayer_options):
 
         if options.master:
             if options.verbose:
-                #sys.stdout.write('\r'); sys.stdout.flush()
-                #sys.stdout.write("local: %.2f" % position_local)
                 sys.stdout.write("local: %.2f %.0f\n" % (position_local, math.modf(position_local)[0]*100/4))
 
             try:
