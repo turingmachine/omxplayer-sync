@@ -39,7 +39,7 @@ Requirements
 ------------
 A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).
 
-Version [c0dd950](omxplayer_0.3.2~git20131105~c0dd950_armhf.deb) of omxplayer.
+Version [c0dd950](http://omxplayer.sconde.net/builds/omxplayer_0.3.2~git20131105~c0dd950_armhf.deb) of omxplayer.
 
 
 Usage notes
