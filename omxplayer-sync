@@ -27,9 +27,8 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.3
-ADJUST_OMXPLAYER = 0.0
 
-REGEX_STATUS = re.compile(r"M\s*:\s*(\d+).*")
+REGEX_STATUS = re.compile(r"^M:\s*(\d+)")
 REGEX_DONE = re.compile(r"have a nice day.*")
 
 global position_master
@@ -68,6 +67,23 @@ def read_position_master():
        filename_master = data[1]
 
 def play_file(filename, options, omxplayer_options):
+    if options.master:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        try:
+            sock.connect((options.destination, PORT))
+        except:
+            print "connect: Network is unreachable"
+            pass
+
+        try:
+            sock.send('%s%%%s' % (str(0.0), filename))
+        except socket.error:
+           pass
+
+        sleep(0.1)
+
     process = pexpect.spawn('%s -s %s %s' % (
         OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
     position_local = 0.0
@@ -87,19 +103,10 @@ def play_file(filename, options, omxplayer_options):
          sys.exit(0)
     signal.signal(signal.SIGINT, kill_process)
 
-    if options.master:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        try:
-            sock.connect((options.destination, PORT))
-        except:
-            print "connect: Network is unreachable"
-            pass
-
     if options.slave:
         wait_for_sync = False
         wait_after_sync = True
-        deviation_moving_avarage = collections.qeque(maxlen=5)
+        deviations = collections.deque(maxlen=25)
 
     while True:
         eof = False
@@ -118,7 +125,7 @@ def play_file(filename, options, omxplayer_options):
                 eof = True
                 break
             else:
-                position_local = (float(process.match.group(1)) / 1000000) + ADJUST_OMXPLAYER
+                position_local = (float(process.match.group(1)) / 1000000)
         if eof: break
 
         if options.master:
@@ -133,16 +140,16 @@ def play_file(filename, options, omxplayer_options):
                 pass
 
         if options.slave:
-            deviation_moving_avarage.append(position_master - position_local)
-            deviations = list(deviation_moving_avarage)
-            deviation = reduce(lambda x, y: x + y, deviations) / len(deviations)
+            deviation = position_master - position_local
+            deviations.append(deviation)
+            moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
 
             if options.verbose:
-                print "local: %.2f master: %.2f deviation: %.2f wait: %r" % (
-                    position_local, position_master, deviation, wait_for_sync)
+                print "local: %.2f master: %.2f deviation: %.2f moving_deviation: %.2f wait: %r" % (
+                    position_local, position_master, deviation, moving_deviation, wait_for_sync)
 
             if wait_for_sync:
-                if deviation >= -0.1 and deviation < 0.1:
+                if moving_deviation >= -0.1 and moving_deviation < 0.1:
                     process.send('p')
                     if options.verbose:
                         print "we are sync, play..."
@@ -157,16 +164,16 @@ def play_file(filename, options, omxplayer_options):
 
                 continue
 
-            if abs(deviation) > TOLERANCE \
-            and position_local > 1.0 \
-            and position_master > 1.0 \
+            if abs(moving_deviation) > TOLERANCE \
+            and position_local > 5.0 \
+            and position_master > 5.0 \
             and filename == filename_master:
                 sleep(0.2)
                 if position_local < position_master :
                     if options.verbose:
                         print "seek forward..."
                     process.send('\x1B[C')
-                elif position_local > (position_master + 20):
+                elif position_local > (position_master + 15):
                     if options.verbose:
                         print "seek backwards..."
                     process.send('\x1B[D')
@@ -206,8 +213,11 @@ def main():
 
     while True:
         for filename in filenames:
-            if options.slave and (filename_master in filenames):
-                filename = filename_master
+            if options.slave:
+                sleep(0.1)
+                if filename_master in filenames:
+                    filename = filename_master
+
             play_file(filename, options, omxplayer_options)
 
         if not options.loop: break
