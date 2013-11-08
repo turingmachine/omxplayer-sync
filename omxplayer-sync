@@ -27,6 +27,7 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.3
+SEEK_SIZE = 30
 
 REGEX_STATUS = re.compile(r"^M:\s*(\d+)")
 REGEX_DONE = re.compile(r"have a nice day.*")
@@ -173,7 +174,7 @@ def play_file(filename, options, omxplayer_options):
                     if options.verbose:
                         print "seek forward..."
                     process.send('\x1B[C')
-                elif position_local > (position_master + 15):
+                elif position_local > (position_master + 15 + SEEK_SIZE):
                     if options.verbose:
                         print "seek backwards..."
                     process.send('\x1B[D')
