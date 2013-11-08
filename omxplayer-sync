@@ -29,7 +29,7 @@ PORT = 1666
 TOLERANCE = 0.3
 SEEK_SIZE = 30
 
-REGEX_STATUS = re.compile(r"^M:\s*(\d+)")
+REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 REGEX_DONE = re.compile(r"have a nice day.*")
 
 global position_master
