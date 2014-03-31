@@ -27,8 +27,8 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 OMXPLAYER = 'omxplayer'
 PORT = 1666
-TOLERANCE = 0.1
-SYNC_WINDOW = (-0.3, -0.2)
+TOLERANCE = 0.3
+SYNC_WINDOW = (-0.4, -0.3)
 
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
@@ -69,22 +69,12 @@ def read_position_master():
        position_master = float(data[0])
        filename_master = data[1]
 
-def play_file(filename, options, omxplayer_options):
-    if options.master:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-        try:
-            sock.connect((options.destination, PORT))
-        except:
-            if options.verbose:
-                 print "connect: Network is unreachable"
-            pass
-
+def play_file(filename, options, omxplayer_options, sock=None, first_run=True):
+    if options.slave:
+        sleep(0.1)
     process = pexpect.spawn('%s -s %s %s' % (
         OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
     position_local = 0.0
-    sync_enabled=True
 
     if options.verbose:
         print "playing %s" % filename
@@ -102,9 +92,11 @@ def play_file(filename, options, omxplayer_options):
     signal.signal(signal.SIGINT, kill_process)
 
     if options.slave:
+        sync_enabled = True
+        sync_grace_time = 0 if first_run else 10.0
         wait_for_sync = False
         wait_after_sync = True
-        deviations = collections.deque(maxlen=25)
+        deviations = collections.deque(maxlen=50)
 
         # get dbus player interface
         sleep(1) # wait for omxplayer to appear on dbus
@@ -136,7 +128,6 @@ def play_file(filename, options, omxplayer_options):
             else:
                 position_local = (float(process.match.group(1)) / 1000000)
         if eof: break
-
 
         if options.master:
             if options.verbose:
@@ -173,12 +164,13 @@ def play_file(filename, options, omxplayer_options):
                 continue
 
             if abs(moving_deviation) > TOLERANCE \
-            and position_local > 1.0 \
-            and position_master > 1.0 \
+            and position_local > sync_grace_time \
+            and position_master > sync_grace_time \
             and filename == filename_master:
                 if options.verbose:
                     print "jump to %.2f" % position_master
-                player_interface.SetPosition(dbus.ObjectPath('/not/used'), long((position_master + 5) * 1000000))
+                if position_local < position_master:
+                    player_interface.SetPosition(dbus.ObjectPath('/not/used'), long((position_master + 5) * 1000000))
                 player_interface.Action(16)
                 wait_for_sync = True
 
@@ -199,6 +191,7 @@ def main():
     p.add_option('--loop', '-u', action='store_true')
     p.add_option('--verbose', '-v', action='store_true')
     options, arguments = p.parse_args()
+    first_run=True
 
     filenames, omxplayer_options = [], []
     for argument in arguments:
@@ -207,13 +200,31 @@ def main():
         else:
             filenames.append(argument)
 
+    if not options.verbose:
+        omxplayer_options.append('--no-osd')
+
+    if options.master:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        try:
+            sock.connect((options.destination, PORT))
+        except:
+            if options.verbose:
+                 print "connect: Network is unreachable"
+            pass
+
     if options.slave:
         thread.start_new_thread(read_position_master,())
         sleep(0.1)
 
     while True:
         for filename in filenames:
-            play_file(filename, options, omxplayer_options)
+            if options.master:
+                play_file(filename, options, omxplayer_options, sock)
+            if options.slave:
+                play_file(filename, options, omxplayer_options, sock=None, first_run=first_run)
+                first_run=False
 
         if not options.loop: break
 
