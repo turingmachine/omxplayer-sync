@@ -6,6 +6,7 @@ instances over the network in a master/slave fashion.
 
 https://vimeo.com/65737409
 
+
 Usage
 -----
 
@@ -39,10 +40,10 @@ Requirements
 ------------
 A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).
 
-Version [c0dd950](http://omxplayer.sconde.net/builds/omxplayer_0.3.2~git20131105~c0dd950_armhf.deb) of omxplayer.
+A recent version (>= 9c8bc1a) of [omxplayer](http://omxplayer.sconde.net).
 
 
 Usage notes
 -----------
-To achive faster initial sync times, one should use a build of omxplayer with 
-forward and backward seek times set to 5 seconds instead of 30 seconds.
+To achive faster initial sync times, you need to encode your videos with
+a smaller GOP size, e.g. 25 frames.
