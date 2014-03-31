@@ -28,7 +28,7 @@ from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.3
-SYNC_WINDOW = (-0.4, -0.3)
+SYNC_WINDOW = (-0.45, -0.35)
 
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
