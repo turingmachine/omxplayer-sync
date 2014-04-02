@@ -167,9 +167,9 @@ def play_file(filename, options, omxplayer_options, sock=None, first_run=True):
             and position_local > sync_grace_time \
             and position_master > sync_grace_time \
             and filename == filename_master:
-                if options.verbose:
-                    print "jump to %.2f" % position_master
                 if position_local < position_master:
+                    if options.verbose:
+                        print "jump to %.2f" % position_master
                     player_interface.SetPosition(dbus.ObjectPath('/not/used'), long((position_master + 5) * 1000000))
                 player_interface.Action(16)
                 wait_for_sync = True
