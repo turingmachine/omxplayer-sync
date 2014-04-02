@@ -47,3 +47,9 @@ Usage notes
 -----------
 To achive faster initial sync times, you need to encode your videos with
 a smaller GOP size, e.g. 25 frames.
+
+Known issues
+-----------
+Currently only syncing of one file without loop mode enabled works reliably. 
+This is due to a bug in omxplayer that causes it not start on frequent 
+starting and stopping of player instances. See omxplayer [Issue #184](https://github.com/popcornmix/omxplayer/issues/181)
