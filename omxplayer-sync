@@ -15,31 +15,25 @@ import re
 import os
 import sys
 import math
-import dbus
 import socket
-import thread
 import pexpect
 import signal
 import collections
+import threading
 from time import sleep, time
-from threading import local
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
-OMXPLAYER = 'omxplayer'
 PORT = 1666
 TOLERANCE = 0.3
 SYNC_WINDOW = (-0.45, -0.35)
-
+OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
 OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus'
 
-global position_master
-position_master = 0.0
-
-global filename_master
-filename_master = ''
-
+#
+# Unknown option pass-through OptionParser
+#
 class PassThroughOptionParser(OptionParser):
     """
     An unknown option pass-through implementation of OptionParser.
@@ -57,176 +51,265 @@ class PassThroughOptionParser(OptionParser):
             except (BadOptionError,AmbiguousOptionError), e:
                 largs.append(e.opt_str)
 
-def read_position_master():
-   global position_master
-   global filename_master
+#
+# D-Bus player interface
+#
+class PlayerInterface():
+    def __init__(self):
+        self.interface = False
 
-   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-   sock.bind(('0.0.0.0', PORT))
+    def __get_dbus_interface(self):
+        if self.interface:
+            return True
 
-   while True:
-       data = sock.recvfrom(1024)[0].split('%', 1)
-       position_master = float(data[0])
-       filename_master = data[1]
-
-def play_file(filename, options, omxplayer_options, sock=None, first_run=True):
-    if options.slave:
-        sleep(0.1)
-    process = pexpect.spawn('%s -s %s %s' % (
-        OMXPLAYER, ' '.join(omxplayer_options), filename), timeout=0.01)
-    position_local = 0.0
-
-    if options.verbose:
-        print "playing %s" % filename
-
-    def kill_process(signum, frame):
-         try:
-             os.kill(-process.pid, 15)
-         except:
-             pass
-         try:
-             process.kill(15)
-         except:
-             pass
-         sys.exit(0)
-    signal.signal(signal.SIGINT, kill_process)
-
-    if options.slave:
-        sync_enabled = True
-        sync_grace_time = 0 if first_run else 10.0
-        wait_for_sync = False
-        wait_after_sync = True
-        deviations = collections.deque(maxlen=50)
-
-        # get dbus player interface
-        sleep(1) # wait for omxplayer to appear on dbus
         try:
-            bus = dbus.bus.BusConnection(open(OMXPLAYER_DBUS_ADDR).readlines()[0].rstrip())
-            proxy = bus.get_object('org.mpris.MediaPlayer2.omxplayer', '/org/mpris/MediaPlayer2', introspect=False)
-            player_interface = dbus.Interface(proxy, 'org.mpris.MediaPlayer2.Player')
+            bus = dbus.bus.BusConnection(
+                open(OMXPLAYER_DBUS_ADDR).readlines()[0].rstrip())
+            proxy = bus.get_object(
+                'org.mpris.MediaPlayer2.omxplayer',
+                '/org/mpris/MediaPlayer2',
+                introspect=False)
+            self.interface = dbus.Interface(
+                proxy, 'org.mpris.MediaPlayer2.Player')
         except:
-            print "WARNING: dbus connection could not be established, syncing is disabled"
+            print "WARNING: dbus connection could not be established"
             sleep(5)
-            sync_enabled=False
+            return False
+        
+        return True
 
-    while True:
+    def initialize(self):
+        if not self.interface:
+            sleep(1) # wait for omxplayer to appear on dbus
+            self.__get_dbus_interface()
+
+    def playPause(self):
+        if not self.__get_dbus__interface():
+            return False
+
+        try:
+            self.interface.Action(16)
+        except:
+            self.interface = False
+            return False
+
+        return True
+
+    def setPosition(self, seconds):
+        if not self.__get_dbus__interface():
+            return False
+
+        try:
+            self.interface.SetPosition(
+                dbus.ObjectPath('/not/used'),
+                long(seconds * 1000000))
+        except:
+            self.interface = False
+            return False
+
+        return True
+
+#
+# OMXPlayer-Sync main class
+#
+class OMXPlayerSync():
+    def __init__(self):
+        self.sock = self.init_socket()
+        self.controller = PlayerInterface()
+
+        self.options = None
+        self.omxplayer_options = []
+        self.playlist = []
+        self.filename = ''
+        self.position_local = 0.0
+        self.position_master = 0.0
+        self.filename_master = ''
+        self.process = None
+        self.first_run = True
+        self.current_filename = ''
+
+        signal.signal(signal.SIGINT, self.kill_omxplayer_and_exit)
+
+    def run(self):
+        p = PassThroughOptionParser()
+        p.add_option('--master', '-m', action='store_true')
+        p.add_option('--slave', '-l', action='store_true')
+        p.add_option('--destination', '-x', default='255.255.255.255')
+        p.add_option('--loop', '-u', action='store_true')
+        p.add_option('--verbose', '-v', action='store_true')
+        self.options, arguments = p.parse_args()
+
+        for argument in arguments:
+            if argument.startswith('-'):
+                self.omxplayer_options.append(argument)
+            else:
+                self.playlist.append(argument)
+
+        if not self.options.verbose:
+            self.omxplayer_options.append('--no-osd')
+
+        if self.options.master:
+            self.socket_enable_broadcast()
+            self.socket_connect(self.options.destination)
+
+        if self.options.slave:
+            read_thread = threading.Thread(target=self.read_position_master)
+            read_thread.daemon = True
+            read_thread.start()
+            sleep(0.1)
+
+        if not len(self.playlist):
+            sys.exit(0)
+
+        playlist_index = 0
+        try:
+            playlist_index = self.playlist.index(self.filename_master)
+        except:
+            print "warning: current master file '%s' is unavailable" % self.filename_master
+
+        while True:
+            self.play_file(self.playlist[playlist_index])
+            playlist_index = 0 if len(playlist) == (index + 1) else (index + 1)
+            self.first_run = False
+
+            if not self.options.loop:
+                break
+
+    def play_file(self, filename):
+        self.filename = filename
+        self.position_local = 0.0
+        self.process = pexpect.spawn('%s -s --no-keys %s %s' % (
+            OMXPLAYER, ' '.join(self.omxplayer_options), self.filename), timeout=0.01)
+
+        if not self.controller.initialize():
+            return
+
+        if options.slave:
+            sync_grace_time = 0 if self.first_run else 10.0
+            wait_for_sync = False
+            wait_after_sync = True
+            deviations = collections.deque(maxlen=50)
+
+        while True:
+            if not self.read_position_local():
+                break
+
+            if self.options.master:
+                self.send_position_local()
+                if self.options.verbose:
+                    sys.stdout.write("local: %.2f %.0f\n" % (
+                        self.position_local, math.modf(self.position_local)[0]*100/4))
+
+            if self.options.slave:
+                deviation = position_master - position_local
+                deviations.append(deviation)
+                moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
+
+                if self.options.verbose:
+                    print "local: %.2f master: %.2f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
+                        position_local, position_master, deviation, moving_deviation, filename, filename_master, wait_for_sync)
+
+                if wait_for_sync:
+                    if moving_deviation >= SYNC_WINDOW[0] \
+                    and moving_deviation < SYNC_WINDOW[1]:
+                        if self.options.verbose:
+                            print "we are sync, play..."
+                        if not self.controller.playPause():
+                            break
+                        wait_for_sync = False
+                        wait_after_sync = time()
+
+                    continue
+
+                if wait_after_sync:
+                    if (time() - wait_after_sync) > 5:
+                         wait_after_sync = False
+
+                    continue
+
+                if filename != filename_master:
+                    break
+
+                if abs(moving_deviation) > TOLERANCE \
+                and position_local > sync_grace_time \
+                and position_master > sync_grace_time:
+                    if position_local < position_master:
+                        if self.options.verbose:
+                            print "jump to %.2f" % position_master
+                        if not self.controller.setPosition(position_master + 5):
+                            break
+                    if not self.controller.playPause():
+                        break
+                    wait_for_sync = True
+
+        self.kill_omxplayer()
+
+    def read_position_local(self):
         eof = False
         while True:
-            index = process.expect([
-                OMXPLAYER_REGEX_STATUS,
+            index = self.process.expect([
+                REGEX_STATUS,
                 pexpect.TIMEOUT,
                 pexpect.EOF,
-                OMXPLAYER_REGEX_DONE,
+                REGEX_DONE,
             ])
             if index == 1:
                 break
             elif index in (2,3):
-                if options.verbose:
+                if self.options.verbose:
                     print "omxplayer has ended..."
                 eof = True
                 break
             else:
-                position_local = (float(process.match.group(1)) / 1000000)
-        if eof: break
+                self.position_local = (float(self.process.match.group(1)) / 1000000)
+        return not eof
 
-        if options.master:
-            if options.verbose:
-                sys.stdout.write("local: %.2f %.0f\n" % (position_local, math.modf(position_local)[0]*100/4))
-
-            try:
-                sock.send('%s%%%s' % (str(position_local), filename))
-            except socket.error:
-                pass
-
-        if options.slave and sync_enabled:
-            deviation = position_master - position_local
-            deviations.append(deviation)
-            moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
-
-            if options.verbose:
-                print "local: %.2f master: %.2f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
-                    position_local, position_master, deviation, moving_deviation, filename, filename_master, wait_for_sync)
-
-            if wait_for_sync:
-                if moving_deviation >= SYNC_WINDOW[0] and moving_deviation < SYNC_WINDOW[1]:
-                    if options.verbose:
-                        print "we are sync, play..."
-                    player_interface.Action(16)
-                    wait_for_sync = False
-                    wait_after_sync = time()
- 
-                continue
-
-            if wait_after_sync:
-                if (time() - wait_after_sync) > 5:
-                     wait_after_sync = False
-
-                continue
-
-            if abs(moving_deviation) > TOLERANCE \
-            and position_local > sync_grace_time \
-            and position_master > sync_grace_time \
-            and filename == filename_master:
-                if position_local < position_master:
-                    if options.verbose:
-                        print "jump to %.2f" % position_master
-                    player_interface.SetPosition(dbus.ObjectPath('/not/used'), long((position_master + 5) * 1000000))
-                player_interface.Action(16)
-                wait_for_sync = True
-
-    try:
-        os.kill(-process.pid, 15)
-    except:
-        pass
-    try:
-        process.kill(15)
-    except:
-        pass
-
-def main():
-    p = PassThroughOptionParser()
-    p.add_option('--master', '-m', action='store_true')
-    p.add_option('--slave', '-l', action='store_true')
-    p.add_option('--destination', '-x', default='255.255.255.255')
-    p.add_option('--loop', '-u', action='store_true')
-    p.add_option('--verbose', '-v', action='store_true')
-    options, arguments = p.parse_args()
-    first_run=True
-
-    filenames, omxplayer_options = [], []
-    for argument in arguments:
-        if argument.startswith('-'):
-            omxplayer_options.append(argument)
-        else:
-            filenames.append(argument)
-
-    if not options.verbose:
-        omxplayer_options.append('--no-osd')
-
-    if options.master:
+    def init_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.bind(('0.0.0.0', PORT))
+        return sock
 
+    def kill_omxplayer(self):
+         try:
+             os.kill(-self.process.pid, 15)
+         except:
+             pass
+         try:
+             self.process.kill(15)
+         except:
+             pass
+
+    def kill_omxplayer_and_exit(self, signum, frame):
+        self.kill_omxplayer()
+        sys.exit(0)
+
+    #
+    # master specific
+    #
+    def socket_enable_broadcast(self):
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+    def socket_connect(self, destination):
         try:
-            sock.connect((options.destination, PORT))
+            self.sock.connect((destination, PORT))
         except:
-            if options.verbose:
-                 print "connect: Network is unreachable"
+            print "connect: Network is unreachable"
             pass
 
-    if options.slave:
-        thread.start_new_thread(read_position_master,())
-        sleep(0.1)
+    def send_position_local(self):
+        try:
+            self.sock.send('%s%%%s' % (str(self.position_local), self.filename))
+        except socket.error:
+            pass
 
-    while True:
-        for filename in filenames:
-            if options.master:
-                play_file(filename, options, omxplayer_options, sock)
-            if options.slave:
-                play_file(filename, options, omxplayer_options, sock=None, first_run=first_run)
-                first_run=False
-
-        if not options.loop: break
+    #
+    # slave specific
+    #
+    def read_position_master(self):
+        while True:
+            data = self.sock.recvfrom(1024)[0].split('%', 1)
+            self.position_master = float(data[0])
+            self.filename_master = data[1]
 
 if __name__ == '__main__':
-    main()
+    OMXPlayerSync().run()
