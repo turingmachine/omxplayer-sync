@@ -59,7 +59,7 @@ class PlayerInterface():
     def __init__(self):
         self.interface = False
 
-    def __get_dbus_interface(self):
+    def _get_dbus_interface(self):
         if self.interface:
             return True
 
@@ -82,10 +82,10 @@ class PlayerInterface():
     def initialize(self):
         if not self.interface:
             sleep(1) # wait for omxplayer to appear on dbus
-            self.__get_dbus_interface()
+            self._get_dbus_interface()
 
     def playPause(self):
-        if not self.__get_dbus__interface():
+        if not self._get_dbus_interface():
             return False
 
         try:
@@ -97,7 +97,7 @@ class PlayerInterface():
         return True
 
     def setPosition(self, seconds):
-        if not self.__get_dbus__interface():
+        if not self._get_dbus_interface():
             return False
 
         try:
@@ -147,6 +147,9 @@ class OMXPlayerSync():
             else:
                 self.playlist.append(argument)
 
+        if not len(self.playlist):
+            sys.exit(0)
+
         if not self.options.verbose:
             self.omxplayer_options.append('--no-osd')
 
@@ -159,11 +162,7 @@ class OMXPlayerSync():
             read_thread.daemon = True
             read_thread.start()
             sleep(0.1)
-
-        if not len(self.playlist):
-            sys.exit(0)
-
-        self.set_playlist_index()
+            self.set_playlist_index()
 
         while True:
             self.play_file(self.playlist[self.playlist_index])
@@ -311,8 +310,8 @@ class OMXPlayerSync():
             self.position_master = float(data[0])
             self.filename_master = data[1]
 
-    def set_playlist_index():
-        if self.filename_master = '':
+    def set_playlist_index(self):
+        if self.filename_master == '':
             print "WARNING: unable to get current filename from master"
             return
             
