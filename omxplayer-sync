@@ -16,8 +16,9 @@ import os
 import sys
 import math
 import socket
-import pexpect
 import signal
+import pexpect
+import dbus
 import collections
 import threading
 from time import sleep, time
@@ -179,6 +180,7 @@ class OMXPlayerSync():
             OMXPLAYER, ' '.join(self.omxplayer_options), self.filename), timeout=0.01)
 
         if not self.controller.initialize():
+            self.kill_omxplayer()
             return
 
         if options.slave:
@@ -311,13 +313,13 @@ class OMXPlayerSync():
 
     def set_playlist_index():
         if self.filename_master = '':
-            print "warning: unable to get current filename from master"
+            print "WARNING: unable to get current filename from master"
             return
             
         try:
             self.playlist_index = self.playlist.index(self.filename_master)
         except:
-            print "warning: current master file '%s' is unavailable" % self.filename_master
+            print "WARNING: current master file '%s' is unavailable" % self.filename_master
 
 
 if __name__ == '__main__':
