@@ -120,6 +120,7 @@ class OMXPlayerSync():
         self.options = None
         self.omxplayer_options = []
         self.playlist = []
+        self.playlist_index = 0
         self.filename = ''
         self.position_local = 0.0
         self.position_master = 0.0
@@ -161,15 +162,11 @@ class OMXPlayerSync():
         if not len(self.playlist):
             sys.exit(0)
 
-        playlist_index = 0
-        try:
-            playlist_index = self.playlist.index(self.filename_master)
-        except:
-            print "warning: current master file '%s' is unavailable" % self.filename_master
+        self.set_playlist_index()
 
         while True:
-            self.play_file(self.playlist[playlist_index])
-            playlist_index = 0 if len(playlist) == (index + 1) else (index + 1)
+            self.play_file(self.playlist[self.playlist_index])
+            self.playlist_index = 0 if len(self.playlist) == (self.playlist_index + 1) else (self.playlist_index + 1)
             self.first_run = False
 
             if not self.options.loop:
@@ -228,6 +225,7 @@ class OMXPlayerSync():
                     continue
 
                 if filename != filename_master:
+                    self.set_playlist_index()
                     break
 
                 if abs(moving_deviation) > TOLERANCE \
@@ -310,6 +308,17 @@ class OMXPlayerSync():
             data = self.sock.recvfrom(1024)[0].split('%', 1)
             self.position_master = float(data[0])
             self.filename_master = data[1]
+
+    def set_playlist_index():
+        if self.filename_master = '':
+            print "warning: unable to get current filename from master"
+            return
+            
+        try:
+            self.playlist_index = self.playlist.index(self.filename_master)
+        except:
+            print "warning: current master file '%s' is unavailable" % self.filename_master
+
 
 if __name__ == '__main__':
     OMXPlayerSync().run()
