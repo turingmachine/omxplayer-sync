@@ -25,8 +25,8 @@ from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 PORT = 1666
-TOLERANCE = 0.3
-SYNC_WINDOW = (-0.45, -0.35)
+TOLERANCE = 0.5
+SYNC_WINDOW = (-0.15, -0.10)
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
@@ -129,7 +129,6 @@ class OMXPlayerSync():
         self.position_master = 0.0
         self.filename_master = ''
         self.process = None
-        self.first_run = True
         self.current_filename = ''
 
         signal.signal(signal.SIGINT, self.kill_omxplayer_and_exit)
@@ -170,23 +169,25 @@ class OMXPlayerSync():
         while True:
             self.play_file(self.playlist[self.playlist_index])
             self.playlist_index = 0 if len(self.playlist) == (self.playlist_index + 1) else (self.playlist_index + 1)
-            self.first_run = False
 
             if not self.options.loop:
                 break
 
     def play_file(self, filename):
+	if options.master:
+		sleep(0.165)
+
         self.filename = filename
         self.position_local = 0.0
         self.process = pexpect.spawn('%s -s --no-keys %s %s' % (
-            OMXPLAYER, ' '.join(self.omxplayer_options), self.filename), timeout=0.02)
+            OMXPLAYER, ' '.join(self.omxplayer_options), self.filename), timeout=0.01)
 
         if not self.controller.initialize():
             self.kill_omxplayer()
             return
 
         if self.options.slave:
-            sync_grace_time = 0 if self.first_run else 10.0
+            sync_grace_time = 1.0
             wait_for_sync = False
             wait_after_sync = True
             deviations = collections.deque(maxlen=50)
@@ -202,17 +203,18 @@ class OMXPlayerSync():
                         self.position_local, math.modf(self.position_local)[0]*100/4))
 
             if self.options.slave:
-                deviation = position_master - position_local
+                deviation = self.position_master - self.position_local
                 deviations.append(deviation)
                 moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
 
                 if self.options.verbose:
-                    print "local: %.2f master: %.2f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
-                        position_local, position_master, deviation, moving_deviation, filename, filename_master, wait_for_sync)
+                    print "local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
+                        self.position_local, math.modf(self.position_local)[0]*100/4, self.position_master, math.modf(self.position_master)[0]*100/4, deviation, moving_deviation, self.filename, self.filename_master, wait_for_sync)
 
                 if wait_for_sync:
-                    if moving_deviation >= SYNC_WINDOW[0] \
-                    and moving_deviation < SYNC_WINDOW[1]:
+                    small_moving_deviation = sum(list(deviations)[-5:]) / float(len(list(deviations)[-5:]))
+                    if small_moving_deviation >= SYNC_WINDOW[0] \
+                    and small_moving_deviation < SYNC_WINDOW[1]:
                         if self.options.verbose:
                             print "we are sync, play..."
                         if not self.controller.playPause():
@@ -228,18 +230,20 @@ class OMXPlayerSync():
 
                     continue
 
-                if filename != filename_master:
+                if self.filename != self.filename_master:
                     self.set_playlist_index()
                     break
 
                 if abs(moving_deviation) > TOLERANCE \
-                and position_local > sync_grace_time \
-                and position_master > sync_grace_time:
-                    if position_local < position_master:
+                and self.position_local > sync_grace_time \
+                and self.position_master > sync_grace_time:
+                    if self.position_local < self.position_master:
                         if self.options.verbose:
-                            print "jump to %.2f" % position_master
-                        if not self.controller.setPosition(position_master + 5):
+                            print "jump to %.2f" % (self.position_master + 5)
+                        if not self.controller.setPosition(self.position_master + 5):
                             break
+
+                    sleep(0.1)
                     if not self.controller.playPause():
                         break
                     wait_for_sync = True
