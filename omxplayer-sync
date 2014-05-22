@@ -84,7 +84,7 @@ class PlayerInterface():
             sleep(1) # wait for omxplayer to appear on dbus
             return self._get_dbus_interface()
 
-	return True
+        return True
 
     def playPause(self):
         if not self._get_dbus_interface():
@@ -148,7 +148,6 @@ class OMXPlayerSync():
             else:
                 self.playlist.append(argument)
 
-
         if not len(self.playlist):
             sys.exit(0)
 
@@ -174,13 +173,14 @@ class OMXPlayerSync():
                 break
 
     def play_file(self, filename):
-	if options.master:
-		sleep(0.165)
+        if self.options.master:
+            sleep(0.05)
 
         self.filename = filename
         self.position_local = 0.0
-        self.process = pexpect.spawn('%s -s --no-keys %s %s' % (
-            OMXPLAYER, ' '.join(self.omxplayer_options), self.filename), timeout=0.01)
+        self.process = pexpect.spawn(timeout=0.0005, maxread=64,
+            command='%s -s --no-keys %s %s' % (
+                OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
         if not self.controller.initialize():
             self.kill_omxplayer()
@@ -219,6 +219,7 @@ class OMXPlayerSync():
                             print "we are sync, play..."
                         if not self.controller.playPause():
                             break
+
                         wait_for_sync = False
                         wait_after_sync = time()
 
@@ -243,30 +244,38 @@ class OMXPlayerSync():
                         if not self.controller.setPosition(self.position_master + 5):
                             break
 
-                    sleep(0.1)
+                        sleep(0.1)
+
+                    if self.options.verbose:
+                        print "enter pause..." % (self.position_master + 5)
                     if not self.controller.playPause():
                         break
+
                     wait_for_sync = True
 
         self.kill_omxplayer()
 
     def read_position_local(self):
-        index = self.process.expect([
-            OMXPLAYER_REGEX_STATUS,
-            pexpect.TIMEOUT,
-            pexpect.EOF,
-            OMXPLAYER_REGEX_DONE,
-        ])
-        if index == 1:
-            return True
-        elif index in (2,3):
-            if self.options.verbose:
-                print "omxplayer has ended..."
-            return False
-        else:
-            self.position_local = (float(self.process.match.group(1)) / 1000000)
+        eof = False
+        while True:
+            index = self.process.expect([
+                OMXPLAYER_REGEX_STATUS,
+                pexpect.TIMEOUT,
+                pexpect.EOF,
+                OMXPLAYER_REGEX_DONE,
+            ])
+            if index == 1:
+                sleep(0.02)
+                break
+            elif index in (2,3):
+                if self.options.verbose:
+                    print "omxplayer has ended..."
+                eof = True
+                break
+            else:
+                self.position_local = (float(self.process.match.group(1)) / 1000000)
 
-        return True
+        return not eof
 
     def init_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
