@@ -38,18 +38,19 @@ omxplayer-sync -luv movie1.mp4 movie2.mp4 /movies/*
 
 Requirements
 ------------
-A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).
+A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).  
+A recent version of the [python bindings for D-Bus](http://www.freedesktop.org/wiki/Software/DBusBindings).  
+A custom [build](https://github.com/turingmachine/omxplayer/commits/omxplayer-sync) of omxplayer with a higher stats output resolution.  
+You can find a compiled version at [yokto.net/0/omxplayer](http://yokto.net/0/omxplayer/omxplayer-3176db4.tar.bz2).
 
-A recent version (>= 9c8bc1a) of [omxplayer](http://omxplayer.sconde.net).
 
-
-Installation
-------------
+Installation on Raspbian
+------------------------
 ```
 su -
 apt-get remove omxplayer
-wget http://omxplayer.sconde.net/builds/omxplayer_0.3.5~git20140328~9c8bc1a_armhf.deb
-dpkg -i omxplayer_0.3.5~git20140328~9c8bc1a_armhf.deb
+rm -rf /usr/bin/omxplayer /usr/bin/omxplayer.bin /usr/lib/omxplayer
+wget -O- http://yokto.net/0/omxplayer/omxplayer-3176db4.tar.bz2 | tar -C / -xjvf -
 wget -O /usr/bin/omxplayer-sync https://github.com/turingmachine/omxplayer-sync/raw/master/omxplayer-sync
 chmod 0755 /usr/bin/omxplayer-sync
 wget https://github.com/turingmachine/omxplayer-sync/raw/master/synctest.mp4
@@ -66,8 +67,3 @@ Usage notes
 To achive faster initial sync times, you need to encode your videos with
 a smaller GOP size, e.g. 25 frames.
 
-Known issues
------------
-Currently only syncing of one file without loop mode enabled works reliably. 
-This is due to a bug in omxplayer that causes it not start on frequent 
-starting and stopping of player instances. See omxplayer [Issue #184](https://github.com/popcornmix/omxplayer/issues/181).
