@@ -110,6 +110,8 @@ class OMXPlayerSync():
         self.playlist_index = 0
         self.filename = ''
         self.position_local = 0.0
+        self.position_local_oldage = 0.0
+        self.position_local_oldage_count = 0
         self.position_master = 0.0
         self.filename_master = ''
         self.process = None
@@ -256,6 +258,16 @@ class OMXPlayerSync():
                 break
             else:
                 self.position_local = (float(self.process.match.group(1)) / 1000000)
+
+                # omxplayer stalling detection
+                self.position_local_oldage_count += 1
+                if self.position_local_oldage_count == 200:
+                     self.position_local_oldage_count = 0
+                     if self.position_local_oldage == self.position_local:
+                         print "WARNING: stalling detected, restarting omxplayer"
+                         eof = True
+                         break
+                     self.position_local_oldage = self.position_local
 
         return not eof
 
