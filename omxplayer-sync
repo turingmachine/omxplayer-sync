@@ -164,6 +164,8 @@ class OMXPlayerSync():
 
         self.filename = filename
         self.position_local = 0.0
+        self.position_local_oldage = 0.0
+        self.position_local_oldage_count = 0
         self.process = pexpect.spawn(timeout=0.0005, maxread=64,
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
