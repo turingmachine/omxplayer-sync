@@ -56,13 +56,7 @@ class PassThroughOptionParser(OptionParser):
 # D-Bus player interface
 #
 class PlayerInterface():
-    def __init__(self):
-        self.interface = False
-
     def _get_dbus_interface(self):
-        if self.interface:
-            return True
-
         try:
             bus = dbus.bus.BusConnection(
                 open(OMXPLAYER_DBUS_ADDR).readlines()[0].rstrip())
@@ -72,42 +66,32 @@ class PlayerInterface():
                 introspect=False)
             self.interface = dbus.Interface(
                 proxy, 'org.mpris.MediaPlayer2.Player')
-        except:
+        except Exception, e:
             print "WARNING: dbus connection could not be established"
+            print e
             sleep(5)
             return False
         
         return True
 
     def initialize(self):
-        if not self.interface:
-            sleep(1) # wait for omxplayer to appear on dbus
-            return self._get_dbus_interface()
-
-        return True
+        sleep(1) # wait for omxplayer to appear on dbus
+        return self._get_dbus_interface()
 
     def playPause(self):
-        if not self._get_dbus_interface():
-            return False
-
         try:
             self.interface.Action(16)
         except:
-            self.interface = False
             return False
 
         return True
 
     def setPosition(self, seconds):
-        if not self._get_dbus_interface():
-            return False
-
         try:
             self.interface.SetPosition(
                 dbus.ObjectPath('/not/used'),
                 long(seconds * 1000000))
         except:
-            self.interface = False
             return False
 
         return True
@@ -182,9 +166,7 @@ class OMXPlayerSync():
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
-        if not self.controller.initialize():
-            self.kill_omxplayer()
-            return
+        self.controller.initialize()
 
         if self.options.slave:
             sync_grace_time = 1.0
@@ -247,7 +229,7 @@ class OMXPlayerSync():
                         sleep(0.1)
 
                     if self.options.verbose:
-                        print "enter pause..." % (self.position_master + 5)
+                        print "enter pause..."
                     if not self.controller.playPause():
                         break
 
