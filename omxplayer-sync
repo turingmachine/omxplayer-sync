@@ -331,6 +331,7 @@ class OMXPlayerSync():
     def set_playlist_index(self):
         if self.filename_master == '':
             print "WARNING: unable to get current filename from master"
+            sleep(5)
             return
             
         try:
