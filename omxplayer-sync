@@ -233,8 +233,8 @@ class OMXPlayerSync():
                 and self.position_master > sync_grace_time:
                     if self.position_local < self.position_master:
                         if self.options.verbose:
-                            print "jump to %.2f" % (self.position_master + 5)
-                        if not self.controller.setPosition(self.position_master + 5):
+                            print "jump to %.2f" % (self.position_master + 2)
+                        if not self.controller.setPosition(self.position_master + 2):
                             break
 
                         sleep(0.1)
