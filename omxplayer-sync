@@ -137,6 +137,10 @@ class OMXPlayerSync():
         if not len(self.playlist):
             sys.exit(0)
 
+        if not filter(lambda x: os.path.isfile(x), self.playlist):
+            print "ERROR: none of the supplied filenames are found"
+            sys.exit(1)
+
         if not self.options.verbose:
             self.omxplayer_options.append('--no-osd')
 
@@ -161,6 +165,11 @@ class OMXPlayerSync():
     def play_file(self, filename):
         if self.options.master:
             sleep(0.05)
+
+        if not os.path.isfile(file_path):
+            if  self.options.verbose:
+                print "WARNING: %s file not found" % filename
+            return    
 
         self.filename = filename
         self.position_local = 0.0
