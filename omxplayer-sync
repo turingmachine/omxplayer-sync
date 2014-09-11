@@ -126,6 +126,7 @@ class OMXPlayerSync():
         p.add_option('--destination', '-x', default='255.255.255.255')
         p.add_option('--loop', '-u', action='store_true')
         p.add_option('--verbose', '-v', action='store_true')
+        p.add_option('--adev', '-o', default='both')
         self.options, arguments = p.parse_args()
 
         for argument in arguments:
@@ -140,7 +141,9 @@ class OMXPlayerSync():
         if not filter(lambda x: os.path.isfile(x), self.playlist):
             print "ERROR: none of the supplied filenames are found"
             sys.exit(1)
-
+        
+        self.omxplayer_options.append("-o %s" % self.options.adev)
+        
         if not self.options.verbose:
             self.omxplayer_options.append('--no-osd')
 
