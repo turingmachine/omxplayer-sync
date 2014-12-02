@@ -180,7 +180,9 @@ class OMXPlayerSync():
         self.position_local_oldage_count = 0
         self.process = pexpect.spawn(timeout=0.0005, maxread=64,
             command='%s -s --no-keys %s %s' % (
-                OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
+                OMXPLAYER,
+                ' '.join(map(lambda x: "'%s'" % x, self.omxplayer_options)),
+                self.filename))
 
         self.controller.initialize()
 
