@@ -65,6 +65,7 @@ omxplayer-sync -luv synctest.mp4
 
 Usage notes
 -----------
-To achive faster initial sync times, you need to encode your videos with
-a smaller GOP size, e.g. 25 frames.
+The filename on master and slave must be exactly the same.
+No other files than movie files in the folder where the movie is, otherwise you may get a sync error (e.g. no pictures, no textfiles). RJ45 cable must be connected before you start the master, otherwise it will not send sync data to slave.
+If you dont know how to create a h264 mp4 file, visit  http://www.online-convert.com
 
