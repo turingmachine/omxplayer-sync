@@ -166,6 +166,8 @@ class OMXPlayerSync():
             self.first_run = False
 
     def play_file(self, filename):
+        if self.options.verbose:
+            last_frame, current_frame = 0, 0
         if self.options.master:
             sleep(0.05)
 
@@ -201,11 +203,15 @@ class OMXPlayerSync():
                 print "WARNING: omxplayer hangup detected, respawning omxplayer"
                 break
 
+            current_frame = math.modf(self.position_local)[0]*100/4
+
             if self.options.master:
                 self.send_position_local()
                 if self.options.verbose:
-                    sys.stdout.write("local: %.2f %.0f\n" % (
-                        self.position_local, math.modf(self.position_local)[0]*100/4))
+                    if current_frame != last_frame:
+                        sys.stdout.write("local: %.2f %.0f\n" % (
+                            self.position_local, math.modf(self.position_local)[0]*100/4))
+                        last_frame = current_frame
 
             if self.options.slave:
                 if self.filename != self.filename_master:
@@ -215,10 +221,12 @@ class OMXPlayerSync():
                 deviation = self.position_master - self.position_local
                 deviations.append(deviation)
                 moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
-
+                
                 if self.options.verbose:
-                    print "local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
-                        self.position_local, math.modf(self.position_local)[0]*100/4, self.position_master, math.modf(self.position_master)[0]*100/4, deviation, moving_deviation, self.filename, self.filename_master, wait_for_sync)
+                    if current_frame != last_frame:
+                        print "local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
+                            self.position_local, current_frame, self.position_master, math.modf(self.position_master)[0]*100/4, deviation, moving_deviation, self.filename, self.filename_master, wait_for_sync)
+                        last_frame = current_frame
 
                 if wait_for_sync:
                     small_moving_deviation = sum(list(deviations)[-5:]) / float(len(list(deviations)[-5:]))
