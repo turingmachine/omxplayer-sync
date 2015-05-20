@@ -24,13 +24,13 @@ import threading
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
-PORT = 1666
-TOLERANCE = 0.25
-SYNC_WINDOW = (-0.30, -0.25)
+TOLERANCE = .1
+SYNC_OFFSET = .2
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
 OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus'
+PORT = 1666
 
 #
 # Unknown option pass-through OptionParser
@@ -230,8 +230,8 @@ class OMXPlayerSync():
 
                 if wait_for_sync:
                     small_moving_deviation = sum(list(deviations)[-5:]) / float(len(list(deviations)[-5:]))
-                    if small_moving_deviation >= SYNC_WINDOW[0] \
-                    and small_moving_deviation < SYNC_WINDOW[1]:
+                    if small_moving_deviation >= -SYNC_OFFSET \
+                    and small_moving_deviation < -SYNC_OFFSET + .5:
                         if self.options.verbose:
                             print "we are sync, play..."
                         if not self.controller.playPause():
