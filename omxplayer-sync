@@ -178,7 +178,7 @@ class OMXPlayerSync():
         self.position_local = 0.0
         self.position_local_oldage = 0.0
         self.position_local_oldage_count = 0
-        self.process = pexpect.spawn(timeout=0.0005, maxread=64,
+        self.process = pexpect.spawn(timeout=0.00005, maxread=64,
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
@@ -271,7 +271,7 @@ class OMXPlayerSync():
                 OMXPLAYER_REGEX_DONE,
             ])
             if index == 1:
-                sleep(0.02)
+                sleep(0.01)
                 break
             elif index in (2,3):
                 if self.options.verbose:
