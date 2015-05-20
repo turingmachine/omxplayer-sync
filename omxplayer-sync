@@ -169,7 +169,7 @@ class OMXPlayerSync():
         if self.options.verbose:
             last_frame, current_frame = 0, 0
         if self.options.master:
-            sleep(0.05)
+            sleep(TOLERANCE*2)
 
         if not os.path.isfile(filename):
             if  self.options.verbose:
