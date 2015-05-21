@@ -166,20 +166,23 @@ class OMXPlayerSync():
             self.first_run = False
 
     def play_file(self, filename):
-        if self.options.verbose:
-            last_frame, current_frame = 0, 0
-        if self.options.master:
-            sleep(TOLERANCE*2)
-
         if not os.path.isfile(filename):
             if  self.options.verbose:
                 print "WARNING: %s file not found" % filename
-            return    
+            return
 
         self.filename = filename
         self.position_local = 0.0
         self.position_local_oldage = 0.0
         self.position_local_oldage_count = 0
+
+        if self.options.verbose:
+            last_frame, current_frame = 0, 0
+
+        if self.options.master:
+            self.send_position_local()
+            sleep(TOLERANCE*2)
+
         self.process = pexpect.spawn(timeout=0.00005, maxread=64,
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
