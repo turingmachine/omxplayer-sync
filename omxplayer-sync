@@ -237,7 +237,7 @@ class OMXPlayerSync():
                 if self.options.verbose:
                     if current_frame_local != last_frame_local \
                     or current_frame_master != last_frame_master:
-                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r" % (
+                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r\n" % (
                             self.position_local, current_frame_local, self.position_master, current_frame_master, deviation, moving_deviation, self.filename, self.filename_master, wait_for_sync))
                         last_frame_local = current_frame_local
                         last_frame_master = current_frame_master
