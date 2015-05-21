@@ -189,6 +189,10 @@ class OMXPlayerSync():
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
+        if not self.read_position_local():
+            print "WARNING: omxplayer did not start. Try to test with `omxplayer -s OPTIONS`"
+            self.kill_omxplayer_and_exit()
+
         self.controller.initialize()
 
         if self.options.slave:
