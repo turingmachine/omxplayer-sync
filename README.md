@@ -4,7 +4,7 @@ OMXPlayer-Sync
 OMXPlayer-Sync facilitates synchronization of multiple OMXPlayer 
 instances over the network in a master/slave fashion.
 
-https://vimeo.com/65737409
+https://vimeo.com/137133716
 
 
 Usage
