@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # omxplayer-sync
 #
@@ -25,8 +25,8 @@ import threading
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
-TOLERANCE = .1
-SYNC_OFFSET = .2
+TOLERANCE = .05
+SYNC_WINDOW = 0.005
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
@@ -50,7 +50,7 @@ class PassThroughOptionParser(OptionParser):
         while rargs:
             try:
                 OptionParser._process_args(self,largs,rargs,values)
-            except (BadOptionError,AmbiguousOptionError), e:
+            except (BadOptionError,AmbiguousOptionError) as e:
                 largs.append(e.opt_str)
 
 #
@@ -69,9 +69,9 @@ class PlayerInterface():
                 proxy, 'org.mpris.MediaPlayer2.Player')
             self.properties = dbus.Interface(
                 proxy, 'org.freedesktop.DBus.Properties')
-        except Exception, e:
-            print "WARNING: dbus connection could not be established"
-            print e
+        except Exception as e:
+            print("WARNING: dbus connection could not be established")
+            print(e)
             sleep(5)
             return False
 
@@ -93,8 +93,9 @@ class PlayerInterface():
         try:
             self.methods.SetPosition(
                 dbus.ObjectPath('/not/used'),
-                long(seconds * 1000000))
-        except:
+                dbus.Int64(seconds * 1000000))
+        except Exception as e:
+            print(e)
             return False
 
         return True
@@ -150,7 +151,7 @@ class OMXPlayerSync():
             sys.exit(0)
 
         if not filter(lambda x: os.path.isfile(x), self.playlist):
-            print "ERROR: none of the supplied filenames are found"
+            print("ERROR: none of the supplied filenames are found")
             sys.exit(1)
 
         self.omxplayer_options.append("-o %s" % self.options.adev)
@@ -163,10 +164,7 @@ class OMXPlayerSync():
             self.socket_connect(self.options.destination)
 
         if self.options.slave:
-            read_thread = threading.Thread(target=self.read_position_master)
-            read_thread.daemon = True
-            read_thread.start()
-            sleep(0.5)
+            self.read_position_master()
             self.set_playlist_index()
 
         while True:
@@ -179,7 +177,8 @@ class OMXPlayerSync():
     def play_file(self, filename):
         if not os.path.isfile(filename):
             if  self.options.verbose:
-                print "WARNING: %s file not found" % filename
+                print("WARNING: %s file not found" % filename)
+            self.increment_playlist_index()
             return
 
         self.filename = filename
@@ -194,35 +193,32 @@ class OMXPlayerSync():
 
         if self.options.master:
             self.send_position_local()
-            sleep(TOLERANCE*2)
 
         self.process = pexpect.spawn(timeout=0.00005, maxread=64,
-            command='%s -s --no-keys %s %s' % (
+            command='%s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
         self.controller.initialize()
 
         if not self.read_position_local():
-            print "WARNING: omxplayer did not start. Try to test with `omxplayer -s OPTIONS`"
+            print("WARNING: omxplayer did not start. Try to test with `omxplayer -s OPTIONS`")
             self.kill_omxplayer_and_exit()
 
-
         if self.options.slave:
-            sync_grace_time = 1.0
             wait_for_sync = False
-            wait_after_sync = True
-            deviations = collections.deque(maxlen=50)
+            wait_after_sync = False
 
         while True:
-            sleep(0.2)
+            if self.options.slave:
+                self.read_position_master()
+                if wait_for_sync:
+                    sync_timer = time()
+
             if not self.read_position_local():
                 self.increment_playlist_index()
                 break
 
             if self.hangup_detected():
-                if self.options.slave:
-                    self.set_playlist_index()
-                print "WARNING: omxplayer hangup detected, respawning omxplayer"
                 break
 
             if self.options.verbose:
@@ -233,10 +229,8 @@ class OMXPlayerSync():
             if self.options.master:
                 self.send_position_local()
                 if self.options.verbose:
-                    if current_frame_local != last_frame_local:
-                        sys.stdout.write("local: %.2f %.0f\n" % (
-                            self.position_local, math.modf(self.position_local)[0]*100/4))
-                        last_frame_local = current_frame_local
+                    sys.stdout.write("local: %.2f %.0f\n" % (
+                        self.position_local, math.modf(self.position_local)[0]*100/4))
 
             if self.options.slave:
                 if self.filename != self.filename_master:
@@ -244,28 +238,32 @@ class OMXPlayerSync():
                     break
 
                 deviation = self.position_master - self.position_local
-                deviations.append(deviation)
-                moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
 
                 if self.options.verbose:
                     if current_frame_local != last_frame_local \
                     or current_frame_master != last_frame_master:
-                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f moving_deviation: %.2f filename: %s filename_master: %s wait: %r\n" % (
-                            self.position_local, current_frame_local, self.position_master, current_frame_master, deviation, moving_deviation, self.filename, self.filename_master, wait_for_sync))
-                        last_frame_local = current_frame_local
-                        last_frame_master = current_frame_master
+                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s filename_master: %s wait_for: %r wait_after: %r\n" % (
+                            self.position_local,
+                            current_frame_local,
+                            self.position_master,
+                            current_frame_master,
+                            deviation,
+                            self.filename,
+                            self.filename_master,
+                            wait_for_sync,
+                            wait_after_sync))
 
                 if wait_for_sync:
-                    small_moving_deviation = sum(list(deviations)[-5:]) / float(len(list(deviations)[-5:]))
-                    if small_moving_deviation >= -SYNC_OFFSET \
-                    and small_moving_deviation < -SYNC_OFFSET + .5:
-                        if self.options.verbose:
-                            print "we are sync, play..."
-                        if not self.controller.playPause():
-                            break
+                    while True:
+                        if abs(abs(deviation) - (time() - sync_timer)) < SYNC_WINDOW:
+                             if self.options.verbose:
+                                 print("we are sync, play...")
+                             if not self.controller.playPause():
+                                 break
 
-                        wait_for_sync = False
-                        wait_after_sync = time()
+                             wait_for_sync = False
+                             wait_after_sync = time()
+                             break
 
                     continue
 
@@ -275,24 +273,22 @@ class OMXPlayerSync():
 
                     continue
 
-                if abs(moving_deviation) > TOLERANCE \
-                and self.position_local > sync_grace_time \
-                and self.position_master > sync_grace_time:
-                    if self.position_local < self.position_master:
-                        if self.options.verbose:
-                            print "jump to %.2f" % (self.position_master + 2)
-                        if not self.controller.setPosition(self.position_master + 2):
-                            break
-
-                        sleep(0.1)
-
+                if abs(deviation) > TOLERANCE \
+                and self.position_local > 1.0 \
+                and self.position_master > 1.0:
                     if self.options.verbose:
-                        print "enter pause..."
-
+                        print("jump to %.2f" % (self.position_master + 5))
+                        print("enter pause...")
                     if not self.controller.playPause():
+                        break
+                    if not self.controller.setPosition(self.position_master + 5):
                         break
 
                     wait_for_sync = True
+                    wait_after_sync = time()
+
+            if self.options.master:
+                sleep(1)
 
         self.kill_omxplayer()
 
@@ -307,14 +303,14 @@ class OMXPlayerSync():
 
     def set_playlist_index(self):
         if self.filename_master == '':
-            print "WARNING: unable to get current filename from master"
+            print("WARNING: unable to get current filename from master")
             sleep(5)
             return
 
         try:
             self.playlist_index = self.playlist.index(self.filename_master)
         except:
-            print "WARNING: current master file '%s' is unavailable" % self.filename_master
+            print("WARNING: current master file '%s' is unavailable" % self.filename_master)
 
     def increment_playlist_index(self):
         if len(self.playlist) == (self.playlist_index + 1):
@@ -348,7 +344,7 @@ class OMXPlayerSync():
          except:
              pass
 
-    def kill_omxplayer_and_exit(self, signum, frame):
+    def kill_omxplayer_and_exit(self, *args):
         self.kill_omxplayer()
         sys.exit(0)
 
@@ -362,12 +358,12 @@ class OMXPlayerSync():
         try:
             self.sock.connect((destination, PORT))
         except:
-            print "connect: Network is unreachable"
+            print("connect: Network is unreachable")
             pass
 
     def send_position_local(self):
         try:
-            self.sock.send('%s%%%s' % (str(self.position_local), self.filename))
+            self.sock.send(("%s%%%s" % (str(self.position_local),  self.filename)).encode('utf-8'))
         except socket.error:
             pass
 
@@ -375,10 +371,9 @@ class OMXPlayerSync():
     # slave specific
     #
     def read_position_master(self):
-        while True:
-            data = self.sock.recvfrom(1024)[0].split('%', 1)
-            self.position_master = float(data[0])
-            self.filename_master = data[1]
+        data = self.sock.recvfrom(1024)[0].decode('utf-8').split('%', 1)
+        self.position_master = float(data[0])
+        self.filename_master = data[1]
 
 if __name__ == '__main__':
     OMXPlayerSync().run()
