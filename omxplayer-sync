@@ -5,9 +5,9 @@
 # Copyright 2014, Simon Josi
 # Simon Josi me(at)yokto(dot)net
 #
-# This program is free software; you can redistribute 
-# it and/or modify it under the terms of the GNU 
-# General Public License version 3 as published by 
+# This program is free software; you can redistribute
+# it and/or modify it under the terms of the GNU
+# General Public License version 3 as published by
 # the Free Software Foundation.
 #
 
@@ -19,6 +19,7 @@ import socket
 import signal
 import pexpect
 import dbus
+import getpass
 import collections
 import threading
 from time import sleep, time
@@ -29,7 +30,7 @@ SYNC_OFFSET = .2
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
-OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus'
+OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus.%s' % getpass.getuser()
 PORT = 1666
 
 #
@@ -40,10 +41,10 @@ class PassThroughOptionParser(OptionParser):
     An unknown option pass-through implementation of OptionParser.
 
     When unknown arguments are encountered, bundle with largs and try again,
-    until rargs is depleted.  
+    until rargs is depleted.
 
     sys.exit(status) will still be called if a known argument is passed
-    incorrectly (e.g. missing arguments or bad argument types, etc.)        
+    incorrectly (e.g. missing arguments or bad argument types, etc.)
     """
     def _process_args(self, largs, rargs, values):
         while rargs:
@@ -64,23 +65,25 @@ class PlayerInterface():
                 'org.mpris.MediaPlayer2.omxplayer',
                 '/org/mpris/MediaPlayer2',
                 introspect=False)
-            self.interface = dbus.Interface(
+            self.methods = dbus.Interface(
                 proxy, 'org.mpris.MediaPlayer2.Player')
+            self.properties = dbus.Interface(
+                proxy, 'org.freedesktop.DBus.Properties')
         except Exception, e:
             print "WARNING: dbus connection could not be established"
             print e
             sleep(5)
             return False
-        
+
         return True
 
     def initialize(self):
-        sleep(1) # wait for omxplayer to appear on dbus
+        sleep(2) # wait for omxplayer to appear on dbus
         return self._get_dbus_interface()
 
     def playPause(self):
         try:
-            self.interface.Action(16)
+            self.methods.Action(16)
         except:
             return False
 
@@ -88,13 +91,21 @@ class PlayerInterface():
 
     def setPosition(self, seconds):
         try:
-            self.interface.SetPosition(
+            self.methods.SetPosition(
                 dbus.ObjectPath('/not/used'),
                 long(seconds * 1000000))
         except:
             return False
 
         return True
+
+    def Position(self):
+        try:
+            return self.properties.Get(
+                'org.mpris.MediaPlayer2.Player',
+                'Position')
+        except:
+            return False
 
 #
 # OMXPlayer-Sync main class
@@ -141,9 +152,9 @@ class OMXPlayerSync():
         if not filter(lambda x: os.path.isfile(x), self.playlist):
             print "ERROR: none of the supplied filenames are found"
             sys.exit(1)
-        
+
         self.omxplayer_options.append("-o %s" % self.options.adev)
-        
+
         if not self.options.verbose:
             self.omxplayer_options.append('--no-osd')
 
@@ -189,11 +200,12 @@ class OMXPlayerSync():
             command='%s -s --no-keys %s %s' % (
                 OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
 
+        self.controller.initialize()
+
         if not self.read_position_local():
             print "WARNING: omxplayer did not start. Try to test with `omxplayer -s OPTIONS`"
             self.kill_omxplayer_and_exit()
 
-        self.controller.initialize()
 
         if self.options.slave:
             sync_grace_time = 1.0
@@ -202,6 +214,7 @@ class OMXPlayerSync():
             deviations = collections.deque(maxlen=50)
 
         while True:
+            sleep(0.2)
             if not self.read_position_local():
                 self.increment_playlist_index()
                 break
@@ -233,7 +246,7 @@ class OMXPlayerSync():
                 deviation = self.position_master - self.position_local
                 deviations.append(deviation)
                 moving_deviation = sum(list(deviations)) / float(len(list(deviations)))
-                
+
                 if self.options.verbose:
                     if current_frame_local != last_frame_local \
                     or current_frame_master != last_frame_master:
@@ -284,33 +297,20 @@ class OMXPlayerSync():
         self.kill_omxplayer()
 
     def read_position_local(self):
-        eof = False
-        while True:
-            index = self.process.expect([
-                OMXPLAYER_REGEX_STATUS,
-                pexpect.TIMEOUT,
-                pexpect.EOF,
-                OMXPLAYER_REGEX_DONE,
-            ])
-            if index == 1:
-                sleep(0.01)
-                break
-            elif index in (2,3):
-                if self.options.verbose:
-                    print "omxplayer has ended..."
-                eof = True
-                break
-            else:
-                self.position_local = (float(self.process.match.group(1)) / 1000000)
+        position_local = self.controller.Position()
+        if position_local:
+            self.position_local = float(position_local)/1000000
+        else:
+            return False
 
-        return not eof
+        return True
 
     def set_playlist_index(self):
         if self.filename_master == '':
             print "WARNING: unable to get current filename from master"
             sleep(5)
             return
-            
+
         try:
             self.playlist_index = self.playlist.index(self.filename_master)
         except:
