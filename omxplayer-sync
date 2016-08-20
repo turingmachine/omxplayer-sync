@@ -2,7 +2,7 @@
 #
 # omxplayer-sync
 #
-# Copyright 2014, Simon Josi
+# Copyright 2016, Simon Josi
 # Simon Josi me(at)yokto(dot)net
 #
 # This program is free software; you can redistribute
@@ -20,13 +20,13 @@ import signal
 import pexpect
 import dbus
 import getpass
-import collections
-import threading
+from subprocess import Popen, DEVNULL
+import itertools
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
 TOLERANCE = .05
-SYNC_WINDOW = 0.005
+SYNC_WINDOW = 0.0005
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
@@ -69,13 +69,12 @@ class PlayerInterface():
                 proxy, 'org.mpris.MediaPlayer2.Player')
             self.properties = dbus.Interface(
                 proxy, 'org.freedesktop.DBus.Properties')
+            return True
         except Exception as e:
             print("WARNING: dbus connection could not be established")
             print(e)
             sleep(5)
             return False
-
-        return True
 
     def initialize(self):
         sleep(2) # wait for omxplayer to appear on dbus
@@ -84,10 +83,10 @@ class PlayerInterface():
     def playPause(self):
         try:
             self.methods.Action(16)
+            return True
         except:
+            print(e)
             return False
-
-        return True
 
     def setPosition(self, seconds):
         try:
@@ -105,7 +104,8 @@ class PlayerInterface():
             return self.properties.Get(
                 'org.mpris.MediaPlayer2.Player',
                 'Position')
-        except:
+        except Exception as e:
+            print(e)
             return False
 
 #
@@ -155,6 +155,7 @@ class OMXPlayerSync():
             sys.exit(1)
 
         self.omxplayer_options.append("-o %s" % self.options.adev)
+        self.omxplayer_options.append('--no-keys')
 
         if not self.options.verbose:
             self.omxplayer_options.append('--no-osd')
@@ -194,9 +195,10 @@ class OMXPlayerSync():
         if self.options.master:
             self.send_position_local()
 
-        self.process = pexpect.spawn(timeout=0.00005, maxread=64,
-            command='%s --no-keys %s %s' % (
-                OMXPLAYER, ' '.join(self.omxplayer_options), self.filename))
+        self.process = Popen([OMXPLAYER] \
+            + list(itertools.chain(*map(lambda x: x.split(' '), self.omxplayer_options))) \
+            + [self.filename],
+            preexec_fn=os.setsid, stdout=DEVNULL, stderr=DEVNULL, stdin=DEVNULL)
 
         self.controller.initialize()
 
@@ -229,8 +231,8 @@ class OMXPlayerSync():
             if self.options.master:
                 self.send_position_local()
                 if self.options.verbose:
-                    sys.stdout.write("local: %.2f %.0f\n" % (
-                        self.position_local, math.modf(self.position_local)[0]*100/4))
+                    sys.stdout.write("local: %.2f %.0f\n" %
+                        (self.position_local, current_frame_local))
 
             if self.options.slave:
                 if self.filename != self.filename_master:
@@ -242,16 +244,14 @@ class OMXPlayerSync():
                 if self.options.verbose:
                     if current_frame_local != last_frame_local \
                     or current_frame_master != last_frame_master:
-                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s filename_master: %s wait_for: %r wait_after: %r\n" % (
+                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s filename_master: %s\n" % (
                             self.position_local,
                             current_frame_local,
                             self.position_master,
                             current_frame_master,
                             deviation,
                             self.filename,
-                            self.filename_master,
-                            wait_for_sync,
-                            wait_after_sync))
+                            self.filename_master))
 
                 if wait_for_sync:
                     while True:
@@ -277,11 +277,11 @@ class OMXPlayerSync():
                 and self.position_local > 1.0 \
                 and self.position_master > 1.0:
                     if self.options.verbose:
-                        print("jump to %.2f" % (self.position_master + 5))
+                        print("jump to %.2f" % (self.position_master + 3))
                         print("enter pause...")
                     if not self.controller.playPause():
                         break
-                    if not self.controller.setPosition(self.position_master + 5):
+                    if not self.controller.setPosition(self.position_master + 3):
                         break
 
                     wait_for_sync = True
@@ -335,14 +335,14 @@ class OMXPlayerSync():
         return sock
 
     def kill_omxplayer(self):
-         try:
-             os.kill(-self.process.pid, 15)
-         except:
-             pass
-         try:
-             self.process.kill(15)
-         except:
-             pass
+        try:
+            os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+        except:
+            pass
+        try:
+            self.process.wait()
+        except:
+            pass
 
     def kill_omxplayer_and_exit(self, *args):
         self.kill_omxplayer()
