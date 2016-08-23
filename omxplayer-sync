@@ -30,8 +30,6 @@ SYNC_GRACE_TIME = 5
 SYNC_JUMP_AHEAD = 3
 
 OMXPLAYER = 'omxplayer'
-OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
-OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
 OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus.%s' % getpass.getuser()
 PORT = 1666
 
@@ -244,16 +242,13 @@ class OMXPlayerSync():
                 deviation = self.position_master - self.position_local
 
                 if self.options.verbose:
-                    if current_frame_local != last_frame_local \
-                    or current_frame_master != last_frame_master:
-                        sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s filename_master: %s\n" % (
-                            self.position_local,
-                            current_frame_local,
-                            self.position_master,
-                            current_frame_master,
-                            deviation,
-                            self.filename,
-                            self.filename_master))
+                    sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s\n" % (
+                        self.position_local,
+                        current_frame_local,
+                        self.position_master,
+                        current_frame_master,
+                        deviation,
+                        self.filename))
 
                 if wait_for_sync:
                     while True:
