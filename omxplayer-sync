@@ -19,11 +19,16 @@ import socket
 import signal
 import dbus
 import getpass
-from subprocess import Popen, DEVNULL
 import itertools
 import collections
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
+from subprocess import Popen
+try:
+    from subprocess import DEVNULL
+except ImportError:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
 
 SYNC_TOLERANCE = .05
 SYNC_GRACE_TIME = 5
