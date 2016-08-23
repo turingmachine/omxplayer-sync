@@ -1,7 +1,7 @@
 OMXPlayer-Sync
 ==============
 
-OMXPlayer-Sync facilitates synchronization of multiple OMXPlayer 
+OMXPlayer-Sync facilitates synchronization of multiple OMXPlayer
 instances over the network in a master/slave fashion.
 
 https://vimeo.com/137133716
@@ -38,10 +38,9 @@ omxplayer-sync -luv movie1.mp4 movie2.mp4 /movies/*
 
 Requirements
 ------------
-A recent version of [pyexpect](http://www.noah.org/wiki/pexpect).  
+A recent version of Python3 or Python2.
 A recent version of the [python bindings for D-Bus](http://www.freedesktop.org/wiki/Software/DBusBindings).  
-A custom [build](https://github.com/turingmachine/omxplayer/commits/omxplayer-sync) of omxplayer with a higher stats output resolution.  
-You can find a compiled version at [yokto.net/0/omxplayer](http://yokto.net/0/omxplayer/omxplayer-3176db4.tar.bz2).
+A recent build of omxplayer from [Sergio Conde](http://omxplayer.sconde.net).
 
 
 Installation on Raspbian
@@ -50,8 +49,9 @@ Installation on Raspbian
 su -
 apt-get remove omxplayer
 rm -rf /usr/bin/omxplayer /usr/bin/omxplayer.bin /usr/lib/omxplayer
-wget -O- http://yokto.net/0/omxplayer/omxplayer-3176db4.tar.bz2 | tar -C / -xjvf -
-ln -sf /lib/arm-linux-gnueabihf/libpcre.so.3 /lib/arm-linux-gnueabihf/libpcre.so.1
+apt-get install libpcre3 fonts-freefont-ttf fbset libssh-4 python3-dbus
+wget http://omxplayer.sconde.net/builds/omxplayer_0.3.7~git20160713~66f9076_armhf.deb
+dpkg -i omxplayer_0.3.7~git20160713~66f9076_armhf.deb
 wget -O /usr/bin/omxplayer-sync https://github.com/turingmachine/omxplayer-sync/raw/master/omxplayer-sync
 chmod 0755 /usr/bin/omxplayer-sync
 wget https://github.com/turingmachine/omxplayer-sync/raw/master/synctest.mp4
@@ -65,7 +65,8 @@ omxplayer-sync -luv synctest.mp4
 
 Usage notes
 -----------
-The filename on master and slave must be exactly the same.
-No other files than movie files in the folder where the movie is, otherwise you may get a sync error (e.g. no pictures, no textfiles). RJ45 cable must be connected before you start the master, otherwise it will not send sync data to slave.
-If you dont know how to create a h264 mp4 file, visit  http://www.online-convert.com
-
+ * The filename on the master and the slave must be exactly the same.
+ * More testfiles with timecodes can be found on [pocketvj.com][http://pocketvj.com/video/small_testfile.mp4].
+ * Make sure there are other files than movie files (e.g. no pictures, no textfiles) in the folder where the movie is, otherwise you may get a sync errors.
+ * A RJ45 cable must be connected before you start the master, otherwise it will not send sync data to slave.
+ * If you dont know how to create a h264 mp4 file, visit http://www.online-convert.com.
