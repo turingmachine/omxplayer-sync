@@ -22,6 +22,7 @@ import dbus
 import getpass
 from subprocess import Popen, DEVNULL
 import itertools
+import collections
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
@@ -105,7 +106,6 @@ class PlayerInterface():
                 'org.mpris.MediaPlayer2.Player',
                 'Position')
         except Exception as e:
-            print(e)
             return False
 
 #
@@ -209,6 +209,7 @@ class OMXPlayerSync():
         if self.options.slave:
             wait_for_sync = False
             wait_after_sync = False
+            deviations = collections.deque(maxlen=10)
 
         while True:
             if self.options.slave:
@@ -240,14 +241,17 @@ class OMXPlayerSync():
                     break
 
                 deviation = self.position_master - self.position_local
+                deviations.append(deviation)
+                median_deviation = self.median(list(deviations))
 
                 if self.options.verbose:
-                    sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f filename: %s\n" % (
+                    sys.stdout.write("local: %.2f %.0f master: %.2f %.0f deviation: %.2f median_deviation: %.2f filename: %s\n" % (
                         self.position_local,
                         current_frame_local,
                         self.position_master,
                         current_frame_master,
                         deviation,
+                        median_deviation,
                         self.filename))
 
                 if wait_for_sync:
@@ -270,7 +274,7 @@ class OMXPlayerSync():
 
                     continue
 
-                if abs(deviation) > SYNC_TOLERANCE \
+                if abs(median_deviation) > SYNC_TOLERANCE \
                 and self.position_local > SYNC_GRACE_TIME \
                 and self.position_master > SYNC_GRACE_TIME:
                     if self.options.verbose:
@@ -371,6 +375,12 @@ class OMXPlayerSync():
         data = self.sock.recvfrom(1024)[0].decode('utf-8').split('%', 1)
         self.position_master = float(data[0])
         self.filename_master = data[1]
+
+    def median(self, lst):
+        quotient, remainder = divmod(len(lst), 2)
+        if remainder:
+            return sorted(lst)[quotient]
+        return float(sum(sorted(lst)[quotient - 1:quotient + 1]) / 2.0)
 
 if __name__ == '__main__':
     OMXPlayerSync().run()
