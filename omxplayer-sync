@@ -257,7 +257,7 @@ class OMXPlayerSync():
 
                 if wait_for_sync:
                     while True:
-                        if abs(abs(deviation) - (time() - sync_timer)) < SYNC_WINDOW:
+                        if abs(deviation) - (time() - sync_timer) < 0:
                              if self.options.verbose:
                                  print("we are sync, play...")
                              if not self.controller.playPause():
