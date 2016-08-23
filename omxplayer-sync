@@ -25,8 +25,10 @@ import itertools
 from time import sleep, time
 from optparse import OptionParser, BadOptionError, AmbiguousOptionError
 
-TOLERANCE = .05
-SYNC_WINDOW = 0.0005
+SYNC_TOLERANCE = .05
+SYNC_GRACE_TIME = 5
+SYNC_JUMP_AHEAD = 3
+
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_REGEX_STATUS = re.compile(r"M:\s*(\d+) ")
 OMXPLAYER_REGEX_DONE = re.compile(r"have a nice day.*")
@@ -268,20 +270,20 @@ class OMXPlayerSync():
                     continue
 
                 if wait_after_sync:
-                    if (time() - wait_after_sync) > 5:
+                    if (time() - wait_after_sync) > SYNC_GRACE_TIME:
                          wait_after_sync = False
 
                     continue
 
-                if abs(deviation) > TOLERANCE \
-                and self.position_local > 1.0 \
-                and self.position_master > 1.0:
+                if abs(deviation) > SYNC_TOLERANCE \
+                and self.position_local > SYNC_GRACE_TIME \
+                and self.position_master > SYNC_GRACE_TIME:
                     if self.options.verbose:
-                        print("jump to %.2f" % (self.position_master + 3))
+                        print("jump to %.2f" % (self.position_master + SYNC_JUMP_AHEAD))
                         print("enter pause...")
                     if not self.controller.playPause():
                         break
-                    if not self.controller.setPosition(self.position_master + 3):
+                    if not self.controller.setPosition(self.position_master + SYNC_JUMP_AHEAD):
                         break
 
                     wait_for_sync = True
