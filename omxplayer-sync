@@ -17,7 +17,6 @@ import sys
 import math
 import socket
 import signal
-import pexpect
 import dbus
 import getpass
 from subprocess import Popen, DEVNULL
