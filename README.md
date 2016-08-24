@@ -67,6 +67,6 @@ Usage notes
 -----------
  * The filename on the master and the slave must be exactly the same.
  * More testfiles with timecodes can be found on [pocketvj.com][http://pocketvj.com/video/small_testfile.mp4].
- * Make sure there are other files than movie files (e.g. no pictures, no textfiles) in the folder where the movie is, otherwise you may get a sync errors.
+ * Make sure there are no other files than movie files (e.g. no pictures, no textfiles) in the folder where the movie is, otherwise you may get sync errors.
  * A RJ45 cable must be connected before you start the master, otherwise it will not send sync data to slave.
  * If you dont know how to create a h264 mp4 file, visit http://www.online-convert.com.
