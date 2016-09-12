@@ -131,7 +131,6 @@ class OMXPlayerSync():
         self.position_master = 0.0
         self.filename_master = ''
         self.process = None
-        self.first_run = True
 
         signal.signal(signal.SIGINT, self.kill_omxplayer_and_exit)
 
@@ -174,10 +173,8 @@ class OMXPlayerSync():
 
         while True:
             self.play_file(self.playlist[self.playlist_index])
-            if not self.first_run and not self.options.loop and self.playlist_index == 0:
+            if not self.options.loop and self.playlist_index == 0:
                 break
-
-            self.first_run = False
 
     def play_file(self, filename):
         if not os.path.isfile(filename):
