@@ -153,7 +153,7 @@ class OMXPlayerSync():
         if not len(self.playlist):
             sys.exit(0)
            
-        if len(self.playlist) == 1:
+        if self.options.loop and len(self.playlist) == 1:
             self.omxplayer_options.append("--loop")
 
         if not filter(lambda x: os.path.isfile(x), self.playlist):
