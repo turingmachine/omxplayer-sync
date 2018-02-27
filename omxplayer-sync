@@ -31,7 +31,7 @@ except ImportError:
     DEVNULL = open(os.devnull, 'wb')
 
 SYNC_TOLERANCE = .05
-SYNC_GRACE_TIME = 5
+SYNC_GRACE_TIME = 10
 SYNC_JUMP_AHEAD = 3
 
 OMXPLAYER = 'omxplayer'
@@ -82,7 +82,7 @@ class PlayerInterface():
             return False
 
     def initialize(self):
-        sleep(2) # wait for omxplayer to appear on dbus
+        sleep(10) # wait for omxplayer to appear on dbus
         return self._get_dbus_interface()
 
     def playPause(self):
