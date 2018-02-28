@@ -31,7 +31,7 @@ except ImportError:
     DEVNULL = open(os.devnull, 'wb')
 
 SYNC_TOLERANCE = .05
-SYNC_GRACE_TIME = 10
+SYNC_GRACE_TIME = 5
 SYNC_JUMP_AHEAD = 3
 
 OMXPLAYER = 'omxplayer'
