@@ -70,5 +70,6 @@ Usage notes
  * Make sure there are no other files than movie files (e.g. no pictures, no textfiles) in the folder where the movie is, otherwise you may get sync errors.
  * A RJ45 cable must be connected before you start the master, otherwise it will not send sync data to slave.
  * Do not send audio output flags with omxplayer-sync on the slave e.g. /usr/bin/omxplayer-sync -lu -o both /media/internal/video/* 
+ * Use videos which are min. 60 seconds or longer
  * If you dont know how to create a h264 mp4 file, visit http://www.online-convert.com.
 
