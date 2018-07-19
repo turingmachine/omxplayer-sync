@@ -33,7 +33,6 @@ except ImportError:
 SYNC_TOLERANCE = .05
 SYNC_GRACE_TIME = 5
 SYNC_JUMP_AHEAD = 3
-ASPECT_OPTIONS = ('fill', 'stretch', 'letterbox')
 
 OMXPLAYER = 'omxplayer'
 OMXPLAYER_DBUS_ADDR='/tmp/omxplayerdbus.%s' % getpass.getuser()
@@ -158,9 +157,8 @@ class OMXPlayerSync():
         if self.options.loop and len(self.playlist) == 1:
             self.omxplayer_options.append("--loop")
             
-        if self.options.aspect is not None:
-            if self.options.aspect in ASPECT_OPTIONS:
-                self.omxplayer_options.append("--aspect-mode %s" % self.options.aspect)
+        if self.options.aspect in ('fill', 'stretch', 'letterbox'):
+            self.omxplayer_options.append("--aspect-mode %s" % self.options.aspect)
 
         if not filter(lambda x: os.path.isfile(x), self.playlist):
             print("ERROR: none of the supplied filenames are found")
