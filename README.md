@@ -20,7 +20,9 @@ Options:
   -l, --slave           
   -x DESTINATION, --destination=DESTINATION
   -u, --loop            
-  -v, --verbose
+  -v, --verbose         
+  -o ADEV, --adev=ADEV  
+  -a ASPECT, --aspect=ASPECT  Aspect Mode - fill, letterbox, stretch
 ```
 
 **master**
@@ -50,16 +52,19 @@ su -
 apt-get remove omxplayer
 rm -rf /usr/bin/omxplayer /usr/bin/omxplayer.bin /usr/lib/omxplayer
 apt-get install libpcre3 fonts-freefont-ttf fbset libssh-4 python3-dbus
-wget http://omxplayer.sconde.net/builds/omxplayer_0.3.7~git20160713~66f9076_armhf.deb
-dpkg -i omxplayer_0.3.7~git20160713~66f9076_armhf.deb
+wget http://omxplayer.sconde.net/builds/omxplayer_0.3.7~git20170130~62fb580_armhf.deb
+dpkg -i omxplayer_0.3.7~git20170130~62fb580_armhf.deb
 wget -O /usr/bin/omxplayer-sync https://github.com/turingmachine/omxplayer-sync/raw/master/omxplayer-sync
 chmod 0755 /usr/bin/omxplayer-sync
 wget https://github.com/turingmachine/omxplayer-sync/raw/master/synctest.mp4
+```
 
-# start on master
+Start on Master (-u loop, -v verbose)
+```
 omxplayer-sync -muv synctest.mp4
-
-# start on slave
+```
+Start on Slave (-u loop, -v verbose)
+```
 omxplayer-sync -luv synctest.mp4
 ```
 
