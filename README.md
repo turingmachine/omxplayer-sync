@@ -25,16 +25,16 @@ Options:
   -a ASPECT, --aspect=ASPECT  Aspect Mode - fill, letterbox, stretch
 ```
 
-**master**
+**Master**
 
 ```
-omxplayer-sync -muv movie1.mp4 movie2.mp4 /movies/*
+omxplayer-sync -m movie1.mp4
 ```
 
-**slave**
+**Slave**
 
 ```
-omxplayer-sync -luv movie1.mp4 movie2.mp4 /movies/*
+omxplayer-sync -l movie1.mp4
 ```
 
 
@@ -47,8 +47,9 @@ A recent build of omxplayer from [Sergio Conde](http://omxplayer.sconde.net).
 
 Installation on Raspbian
 ------------------------
+Perform on both master and slave.
 ```
-su -
+sudo su
 apt-get remove omxplayer
 rm -rf /usr/bin/omxplayer /usr/bin/omxplayer.bin /usr/lib/omxplayer
 apt-get install libpcre3 fonts-freefont-ttf fbset libssh-4 python3-dbus
