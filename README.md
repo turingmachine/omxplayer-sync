@@ -79,3 +79,8 @@ Usage notes
  * Use videos which are min. 60 seconds or longer
  * If you dont know how to create a h264 mp4 file, visit http://www.online-convert.com.
 
+
+Example usage
+--------------
+see this link: https://www.youtube.com/watch?v=Xp6GKFaw0io&feature=youtu.be
+by DSPeelJ
