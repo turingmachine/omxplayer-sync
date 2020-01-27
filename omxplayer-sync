@@ -139,6 +139,7 @@ class OMXPlayerSync():
         p.add_option('--master', '-m', action='store_true')
         p.add_option('--slave', '-l', action='store_true')
         p.add_option('--destination', '-x', default='255.255.255.255')
+        p.add_option('--bind', '-b', default='0.0.0.0')
         p.add_option('--loop', '-u', action='store_true')
         p.add_option('--verbose', '-v', action='store_true')
         p.add_option('--adev', '-o', default='both')
@@ -340,7 +341,7 @@ class OMXPlayerSync():
 
     def init_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
-        sock.bind(('0.0.0.0', PORT))
+        sock.bind((self.options.bind, PORT))
         return sock
 
     def kill_omxplayer(self):
