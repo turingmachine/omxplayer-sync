@@ -42,7 +42,7 @@ Requirements
 ------------
 A recent version of Python3 or Python2.
 A recent version of the [python bindings for D-Bus](http://www.freedesktop.org/wiki/Software/DBusBindings).  
-A recent build of omxplayer from [Sergio Conde](http://omxplayer.sconde.net).
+A recent build of omxplayer for [Jesse](http://steinerdatenbank.de/software/omxplayer_0.3.7~git20180910~7f3faf6~jessie_armhf.deb) or [Stretch](http://steinerdatenbank.de/software/omxplayer_20180910~7f3faf6~stretch_armhf.deb).
 
 
 Installation on Raspbian
